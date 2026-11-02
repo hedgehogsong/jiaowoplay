@@ -38,6 +38,8 @@ export interface Round {
   roundNumber: number;
   status: RoundStatus;
   previousWords: string[];
+  /** 由游戏定义生成的本轮引导文案 */
+  prompt: string;
   submissions: Map<string, Submission>;
   allSame: boolean;
   partialMeetings: PartialMeeting[];

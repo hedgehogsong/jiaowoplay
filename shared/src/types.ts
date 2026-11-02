@@ -55,6 +55,8 @@ export interface RoundView {
   status: RoundStatus;
   /** 上一轮所有已揭晓词，用于提示玩家做关联 */
   previousWords: string[];
+  /** 服务端生成的本轮引导文案 */
+  prompt: string;
   /** 未揭晓时为 null，避免泄露 */
   submissions: SubmissionView[] | null;
   allSame: boolean;

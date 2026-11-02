@@ -18,6 +18,7 @@ export function toRoundView(round: Round, players: Map<string, Player>): RoundVi
     roundNumber: round.roundNumber,
     status: round.status,
     previousWords: [...round.previousWords],
+    prompt: round.prompt,
     // 未揭晓时绝不下发提交内容
     submissions: revealed ? toSubmissionViews(round, players) : null,
     allSame: round.allSame,

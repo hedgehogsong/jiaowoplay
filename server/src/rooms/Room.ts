@@ -342,6 +342,11 @@ export class GameRoom {
       roundNumber,
       status: 'COLLECTING',
       previousWords: [...previousWords],
+      prompt: this.deps.game.buildRoundPrompt({
+        roundNumber,
+        previousWords: [...previousWords],
+        activePlayers: activePlayers.slice(),
+      }),
       submissions: new Map(),
       allSame: false,
       partialMeetings: [],
@@ -368,7 +373,7 @@ export class GameRoom {
       roundNumber,
       previousWords: round.previousWords,
       collectDeadline: round.collectDeadline,
-      prompt: this.deps.game.buildRoundPrompt({ roundNumber, previousWords, activePlayers }),
+      prompt: round.prompt,
     });
     this.deps.notifier.broadcastState();
 

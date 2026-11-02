@@ -1,0 +1,44 @@
+/**
+ * PM2 进程配置示例。
+ *
+ * 用法（在服务器上）：
+ *   cp deploy/ecosystem.config.cjs.example ecosystem.config.cjs
+ *   修改下面的 env（尤其 SESSION_SECRET 与 CORS_ORIGIN）
+ *   pm2 start ecosystem.config.cjs
+ *   pm2 save && pm2 startup
+ *
+ * 注意：instances 必须保持 1。房间与对局状态保存在进程内存中，
+ * 多实例会导致同一房间被不同进程各自持有、状态不一致。
+ * 需要横向扩展时应先引入 Redis adapter 与共享状态层。
+ */
+module.exports = {
+  apps: [
+    {
+      name: 'jiaowoplay',
+      script: 'server/dist/index.js',
+      cwd: '/opt/jiaowoplay',
+      instances: 1,
+      exec_mode: 'fork',
+      autorestart: true,
+      max_memory_restart: '300M',
+      kill_timeout: 8000,
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3000,
+        HOST: '127.0.0.1',
+        DB_PATH: '/opt/jiaowoplay/server/data/jiaowoplay.sqlite',
+        // 部署前务必替换为随机长字符串：openssl rand -hex 32
+        SESSION_SECRET: 'CHANGE_ME_TO_A_RANDOM_SECRET',
+        // 改成你的实际域名，逗号分隔多个
+        CORS_ORIGIN: 'https://play.example.com',
+        // 由 Node 直接托管前端产物；留空则交给 Nginx
+        STATIC_DIR: '/opt/jiaowoplay/web/dist',
+        LOG_LEVEL: 'info',
+      },
+      out_file: '/var/log/jiaowoplay/out.log',
+      error_file: '/var/log/jiaowoplay/err.log',
+      merge_logs: true,
+      time: true,
+    },
+  ],
+};
