@@ -1,0 +1,32 @@
+{
+  "name": "jiaowoplay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "交我PLAY - 线上小游戏聚合平台（首个游戏：同词相见）",
+  "workspaces": [
+    "shared",
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run build --workspace @jiaowoplay/shared && concurrently -k -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm run dev --workspace @jiaowoplay/server",
+    "dev:web": "npm run dev --workspace @jiaowoplay/web",
+    "build": "npm run build --workspace @jiaowoplay/shared && npm run build --workspace @jiaowoplay/server && npm run build --workspace @jiaowoplay/web",
+    "start": "npm run start --workspace @jiaowoplay/server",
+    "test": "npm run build --workspace @jiaowoplay/shared && npm run test --workspace @jiaowoplay/server",
+    "typecheck": "npm run build --workspace @jiaowoplay/shared && npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.21.5": true
+  }
+}
