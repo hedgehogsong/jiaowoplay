@@ -1,4 +1,4 @@
-import type { RoomSettings } from '@jiaowoplay/shared';
+import type { RoomSettings, ServerToClientEvents } from '@jiaowoplay/shared';
 import { GameRoom, type RoomNotifier, type ServerEvent } from '../src/rooms/Room.js';
 import type { Player, RoomData } from '../src/domain/types.js';
 import { sameWordGame } from '../src/games/sameword/index.js';
@@ -16,11 +16,15 @@ export function createFakeNotifier(log: RecordedEvent[]): RoomNotifier {
     broadcastState() {
       log.push({ kind: 'state' });
     },
-    broadcast(event, payload) {
-      log.push({ kind: 'broadcast', event, payload });
+    broadcast<E extends ServerEvent>(event: E, ...args: Parameters<ServerToClientEvents[E]>) {
+      log.push({ kind: 'broadcast', event, payload: args[0] });
     },
-    sendToPlayer(playerId, event, payload) {
-      log.push({ kind: 'send', playerId, event, payload });
+    sendToPlayer<E extends ServerEvent>(
+      playerId: string,
+      event: E,
+      ...args: Parameters<ServerToClientEvents[E]>
+    ) {
+      log.push({ kind: 'send', playerId, event, payload: args[0] });
     },
   };
 }

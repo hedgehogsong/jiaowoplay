@@ -195,6 +195,17 @@ describe('REST 接口', () => {
     expect(status).toBe(400);
     expect(body.error.code).toBe('SETTINGS_INVALID');
   });
+
+  it('开发者昵称 hedgehogsong 可正常建房并被标记', async () => {
+    const { status, body } = await json<JoinResult>('/api/rooms', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ nickname: 'hedgehogsong' }),
+    });
+    expect(status).toBe(201);
+    expect(body.state.players[0]?.nickname).toBe('hedgehogsong');
+    expect(body.state.players[0]?.isDeveloper).toBe(true);
+  });
 });
 
 describe('Socket.IO 完整对局', () => {

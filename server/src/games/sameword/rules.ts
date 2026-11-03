@@ -51,7 +51,7 @@ export function toPartialMeetings(groups: WordGroup[]): PartialMeeting[] {
 }
 
 /**
- * 同词相见判定：
+ * 同词相『交』判定：
  * - 弃权者不参与判定
  * - 可判定人数 < 2 → 人数不足
  * - 全部可判定者词相同 → 全员相遇

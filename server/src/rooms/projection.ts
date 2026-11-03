@@ -5,6 +5,7 @@ import {
   NICKNAME_MIN_LENGTH,
   WORD_MAX_LENGTH,
   WORD_MIN_LENGTH,
+  isDeveloperNickname,
 } from '@jiaowoplay/shared';
 import type {
   PublicRoomInfo,
@@ -45,6 +46,7 @@ export function projectRoomState(room: GameRoom, viewerPlayerId: string | null):
       nickname: player.nickname,
       isHost: player.isHost,
       isOnline: player.isOnline,
+      isDeveloper: isDeveloperNickname(player.nickname),
       isActive: player.isActive,
       hasSubmitted: Boolean(
         session &&

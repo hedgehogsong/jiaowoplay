@@ -38,7 +38,7 @@ export const GAMES: GameEntry[] = [
   {
     slug: 'same-word',
     gameType: 'sameword',
-    name: '同词相见',
+    name: '同词相『交』',
     mark: '同',
     tagline: '各自写一个词，全员撞上同一个词就算相遇成功',
     summary:

@@ -20,5 +20,8 @@ data/
 .DS_Store
 Thumbs.db
 .idea/
+
+# 本地对局数据导出与分析结论，不推送到远端
+analysis/
 .vscode/*
 !.vscode/extensions.json

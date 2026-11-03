@@ -2,7 +2,7 @@
   "name": "jiaowoplay",
   "version": "0.1.0",
   "private": true,
-  "description": "交我PLAY - 线上小游戏聚合平台（首个游戏：同词相见）",
+  "description": "交我PLAY - 线上小游戏聚合平台（首个游戏：同词相『交』）",
   "workspaces": [
     "shared",
     "server",

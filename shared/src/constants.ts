@@ -14,7 +14,7 @@ export const WORD_MAX_LENGTH = 20;
 
 export const DEFAULT_MAX_ROUNDS = 20;
 export const DEFAULT_SUBMIT_TIMEOUT_MS = 120_000;
-export const DEFAULT_REVEAL_DURATION_MS = 10_000;
+export const DEFAULT_REVEAL_DURATION_MS = 5_000;
 
 export const MAX_ROUNDS_LIMIT = { min: 3, max: 50 };
 export const SUBMIT_TIMEOUT_LIMIT = { min: 5_000, max: 600_000 };
@@ -26,3 +26,12 @@ export const EMPTY_ROOM_TTL_MS = 5 * 60 * 1000;
 export const HOST_OFFLINE_GRACE_MS = 30 * 1000;
 /** 普通玩家掉线多久后视为离开对局 */
 export const PLAYER_OFFLINE_GRACE_MS = 90 * 1000;
+
+/** 开发者专属昵称，仅用于前端标识展示，不授予任何权限 */
+export const DEVELOPER_NICKNAMES = ['hedgehogsong'];
+
+/** 与房间内昵称唯一性判定一致，按大小写不敏感匹配 */
+export function isDeveloperNickname(nickname: string): boolean {
+  const normalized = nickname.trim().toLowerCase();
+  return DEVELOPER_NICKNAMES.some((name) => name.toLowerCase() === normalized);
+}

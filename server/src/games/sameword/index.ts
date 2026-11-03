@@ -25,7 +25,7 @@ import type { GameOutcome, GameType } from '@jiaowoplay/shared';
 
 export class SameWordGame implements GameDefinition {
   readonly type: GameType = 'sameword';
-  readonly label = '同词相见';
+  readonly label = '同词相『交』';
   readonly description =
     '每轮所有人各自提交一个词，提交前互相看不到。若全员提交完全相同的词即相遇成功；' +
     '从第二轮起，你的词需要同时关联上一轮揭晓的所有词。';

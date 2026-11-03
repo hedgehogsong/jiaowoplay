@@ -27,16 +27,22 @@ export function createNotifierFor(io: TypedServer, room: GameRoom): RoomNotifier
         socket.emit('roomState', projectRoomState(room, playerId));
       }
     },
-    broadcast(event: ServerEvent, payload: unknown): void {
-      const target = io.to(roomName) as unknown as { emit: (name: string, data: unknown) => void };
-      target.emit(event as string, payload);
+    broadcast<E extends ServerEvent>(event: E, ...args: Parameters<ServerToClientEvents[E]>): void {
+      const target = io.to(roomName) as unknown as {
+        emit: (name: string, ...data: unknown[]) => void;
+      };
+      target.emit(event as string, ...args);
     },
-    sendToPlayer(playerId: string, event: ServerEvent, payload: unknown): void {
+    sendToPlayer<E extends ServerEvent>(
+      playerId: string,
+      event: E,
+      ...args: Parameters<ServerToClientEvents[E]>
+    ): void {
       for (const socketId of socketsInRoom()) {
         const socket = io.sockets.sockets.get(socketId);
         if ((socket?.data as SocketData | undefined)?.playerId !== playerId) continue;
-        const target = socket as unknown as { emit: (name: string, data: unknown) => void };
-        target.emit(event as string, payload);
+        const target = socket as unknown as { emit: (name: string, ...data: unknown[]) => void };
+        target.emit(event as string, ...args);
       }
     },
   };

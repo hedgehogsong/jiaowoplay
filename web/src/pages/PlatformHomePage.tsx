@@ -75,9 +75,7 @@ export default function PlatformHomePage() {
         </div>
       </main>
 
-      <footer className="footer">
-        房间最多 8 人 · 无需账号 · 刷新页面会自动回到原房间
-      </footer>
+      <p className="hint home-note">房间最多 8 人 · 无需账号 · 刷新页面会自动回到原房间</p>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 # 交我PLAY
 
 线上小游戏聚合平台。无需注册：设置昵称即可创建/加入房间，房间内实时对战。
-首个游戏为**同词相见**，架构上通过 `GameDefinition` 接口预留了更多小游戏的扩展位。
+首个游戏为**同词相『交』**，架构上通过 `GameDefinition` 接口预留了更多小游戏的扩展位。
 
 - 后端：Node.js + TypeScript + Express + Socket.IO，房间状态保存在服务端内存
 - 前端：React + Vite + TypeScript，纯 CSS（无 UI 框架）
@@ -77,10 +77,10 @@ npm test
 
 ---
 
-## 4. 游戏规则（同词相见）
+## 4. 游戏规则（同词相『交』）
 
 1. 房主开局后，房间内**所有在线玩家**进入第一轮；开局后加入者进等待区，下一局自动加入。
-2. 每轮每人提交一个词（1–20 字符，禁止纯空白/控制字符）。提交前互相不可见，全员提交后统一揭晓。
+2. 每轮每人提交一个词（1–20 字符，禁止纯空白/控制字符）。提交前互相不可见，全员提交后统一揭晓，展示 5 秒后自动进入下一轮。
 3. 第一轮自由输入；从第二轮起，你的词需要**同时关联上一轮所有已揭晓词**（主观关联，系统不校验语义）。
 4. 全员提交词去首尾空格后完全一致 → 全员相遇，本局胜利，记录总轮次与每轮词。
 5. 仅部分人同词 → 不结束，揭晓区标记「局部相遇：A 与 B」并写入历史，进入下一轮。
@@ -256,7 +256,7 @@ curl -s http://127.0.0.1:3000/health   # 房间/玩家计数
 ├─ server/
 │  ├─ src/
 │  │  ├─ domain/      领域类型、ID/令牌生成、输入校验、错误码
-│  │  ├─ games/       GameDefinition 抽象 + 同词相见实现 + 注册表
+│  │  ├─ games/       GameDefinition 抽象 + 同词相『交』实现 + 注册表
 │  │  ├─ rooms/       房间状态机（Room）、房间管理（RoomManager）、视角投影
 │  │  ├─ realtime/    Socket.IO 接入、Notifier、Socket 层限流
 │  │  ├─ routes/      REST 路由与统一错误处理
@@ -268,7 +268,7 @@ curl -s http://127.0.0.1:3000/health   # 房间/玩家计数
 │     ├─ games/       registry.ts —— 游戏注册表：首页卡片、/play/:slug、面板选择都源于此
 │     ├─ pages/       平台首页 / 游戏大厅 / 房间页 / 404
 │     ├─ components/  成员列表、房主控制、揭晓区、历史等通用组件
-│     │  └─ games/sameword/  同词相见专属组件
+│     │  └─ games/sameword/  同词相『交』专属组件
 │     ├─ hooks/       useRoom（连接与状态）、useNow（倒计时）
 │     └─ lib/         REST 客户端、Socket 单例、本地存储
 └─ deploy/      deploy.sh（tar over ssh + systemd）、remote-setup.sh、

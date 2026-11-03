@@ -29,6 +29,8 @@ export interface PlayerView {
   nickname: string;
   isHost: boolean;
   isOnline: boolean;
+  /** 昵称命中开发者名单，仅用于展示特殊标识，不代表任何权限 */
+  isDeveloper: boolean;
   /** 是否参与当前对局（开局后加入者为 false） */
   isActive: boolean;
   /** 本轮是否已提交（仅对局中且活跃时有意义） */

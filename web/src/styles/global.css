@@ -80,10 +80,19 @@ button {
   padding: 24px 16px calc(40px + env(safe-area-inset-bottom));
 }
 
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-shell > .page {
+  flex: 1 0 auto;
+}
+
 .page--center {
   display: grid;
   place-items: center;
-  min-height: 100vh;
 }
 
 .hero {
@@ -154,11 +163,37 @@ button {
   margin-left: auto;
 }
 
-.footer {
-  margin-top: 28px;
-  color: var(--muted);
-  font-size: 13px;
+.home-note {
+  margin: 28px 0 0;
   text-align: center;
+}
+
+.site-footer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.site-footer__link {
+  color: var(--accent-soft);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.site-footer__link:hover {
+  color: var(--teal);
+  border-bottom-color: currentcolor;
+}
+
+.site-footer__dot {
+  color: var(--border);
 }
 
 /* ------------------------------------------------------------------ 面板 */
@@ -383,6 +418,13 @@ button {
   background: rgb(255 107 129 / 12%);
 }
 
+.tag--dev {
+  color: #e7dcff;
+  border-color: rgb(157 146 255 / 62%);
+  background: rgb(124 108 255 / 24%);
+  font-weight: 600;
+}
+
 /* ------------------------------------------------------------------ 房间号 */
 
 .room-code {
@@ -448,6 +490,25 @@ button {
 
 .member--offline {
   opacity: 0.55;
+}
+
+.member--dev {
+  border-color: rgb(255 215 110 / 48%);
+  background: rgb(255 215 110 / 7%);
+}
+
+.member--dev .member__avatar {
+  box-shadow: 0 0 0 2px rgb(255 215 110 / 55%);
+}
+
+/* 先给一个纯色兜底，支持 background-clip: text 的浏览器再叠加渐变 */
+.member--dev .member__name {
+  color: #ffd76e;
+  font-weight: 700;
+  background: linear-gradient(96deg, #ffe9a8 0%, #ffb347 52%, #ff9ad2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .member__avatar {

@@ -3,6 +3,7 @@ import {
   HOST_OFFLINE_GRACE_MS,
   MIN_PLAYERS,
   PLAYER_OFFLINE_GRACE_MS,
+  isDeveloperNickname,
 } from '@jiaowoplay/shared';
 import type { GameOutcome, ServerToClientEvents } from '@jiaowoplay/shared';
 import type { HistoryRepository } from '../db/repository.js';
@@ -18,8 +19,13 @@ export type ServerEvent = keyof ServerToClientEvents;
 export interface RoomNotifier {
   /** 由实时层按每个观察者的视角重新投影后下发 */
   broadcastState(): void;
-  broadcast(event: ServerEvent, payload: unknown): void;
-  sendToPlayer(playerId: string, event: ServerEvent, payload: unknown): void;
+  /** 用泛型绑定事件名与负载类型，避免 payload 写成 unknown 后静默跑偏 */
+  broadcast<E extends ServerEvent>(event: E, ...args: Parameters<ServerToClientEvents[E]>): void;
+  sendToPlayer<E extends ServerEvent>(
+    playerId: string,
+    event: E,
+    ...args: Parameters<ServerToClientEvents[E]>
+  ): void;
 }
 
 export interface RoomDeps {
@@ -143,13 +149,16 @@ export class GameRoom {
     this.data.emptySince = null;
     this.touch();
     this.deps.notifier.broadcast('playerJoined', {
-      id: player.id,
-      nickname: player.nickname,
-      isHost: player.isHost,
-      isOnline: player.isOnline,
-      isActive: player.isActive,
-      hasSubmitted: false,
-      joinedAt: player.joinedAt,
+      player: {
+        id: player.id,
+        nickname: player.nickname,
+        isHost: player.isHost,
+        isOnline: player.isOnline,
+        isDeveloper: isDeveloperNickname(player.nickname),
+        isActive: player.isActive,
+        hasSubmitted: false,
+        joinedAt: player.joinedAt,
+      },
     });
     this.deps.notifier.broadcastState();
   }

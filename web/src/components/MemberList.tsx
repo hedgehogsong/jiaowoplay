@@ -22,7 +22,7 @@ export default function MemberList({ players, selfId, maxPlayers, gameRunning }:
             key={player.id}
             className={`member ${player.isOnline ? '' : 'member--offline'} ${
               player.id === selfId ? 'member--self' : ''
-            }`}
+            } ${player.isDeveloper ? 'member--dev' : ''}`}
           >
             <span className="member__avatar" aria-hidden>
               {Array.from(player.nickname)[0] ?? '?'}
@@ -33,6 +33,7 @@ export default function MemberList({ players, selfId, maxPlayers, gameRunning }:
             </span>
             <span className="member__tags">
               {player.isHost && <span className="tag tag--host">房主</span>}
+              {player.isDeveloper && <span className="tag tag--dev">开发者</span>}
               {gameRunning && !player.isActive && <span className="tag">等待区</span>}
               {gameRunning && player.isActive && player.hasSubmitted && (
                 <span className="tag tag--ok">已提交</span>

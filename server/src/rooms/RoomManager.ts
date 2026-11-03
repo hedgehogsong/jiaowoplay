@@ -1,5 +1,5 @@
 import { MAX_PLAYERS } from '@jiaowoplay/shared';
-import type { GameType, RoomSettings } from '@jiaowoplay/shared';
+import type { GameType, RoomSettings, ServerToClientEvents } from '@jiaowoplay/shared';
 import type { HistoryRepository } from '../db/repository.js';
 import { AppError, ErrorCode } from '../domain/errors.js';
 import { generateReconnectToken, generateRoomCode, newId } from '../domain/ids.js';
@@ -217,11 +217,15 @@ class LazyNotifier implements RoomNotifier {
     this.target?.broadcastState();
   }
 
-  broadcast(event: ServerEvent, payload: unknown): void {
-    this.target?.broadcast(event, payload);
+  broadcast<E extends ServerEvent>(event: E, ...args: Parameters<ServerToClientEvents[E]>): void {
+    this.target?.broadcast(event, ...args);
   }
 
-  sendToPlayer(playerId: string, event: ServerEvent, payload: unknown): void {
-    this.target?.sendToPlayer(playerId, event, payload);
+  sendToPlayer<E extends ServerEvent>(
+    playerId: string,
+    event: E,
+    ...args: Parameters<ServerToClientEvents[E]>
+  ): void {
+    this.target?.sendToPlayer(playerId, event, ...args);
   }
 }

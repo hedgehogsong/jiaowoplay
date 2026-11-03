@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError } from '../src/domain/errors.js';
+import { defaultSettings } from '../src/domain/validation.js';
 import { projectRoomState } from '../src/rooms/projection.js';
 import {
+  DEFAULT_REVEAL_DURATION_MS,
   EMPTY_ROOM_TTL_MS,
   HOST_OFFLINE_GRACE_MS,
   PLAYER_OFFLINE_GRACE_MS,
@@ -323,5 +325,50 @@ describe('房间回收', () => {
     ctx = createTestRoom({ nicknames: ['房主', '乙'] });
     ctx.room.setOnline(ctx.byNickname('乙').id, false, null);
     expect(ctx.room.sweep(Date.now() + PLAYER_OFFLINE_GRACE_MS * 2)).toBe(false);
+  });
+});
+
+describe('开发者标识', () => {
+  it('昵称命中开发者名单时，投影与加入广播都带 isDeveloper', () => {
+    ctx = createTestRoom({ nicknames: ['hedgehogsong', '乙'] });
+    const dev = ctx.byNickname('hedgehogsong');
+
+    const state = projectRoomState(ctx.room, dev.id);
+    expect(state.players.find((player) => player.id === dev.id)?.isDeveloper).toBe(true);
+    expect(state.players.find((player) => player.nickname === '乙')?.isDeveloper).toBe(false);
+
+    const joined = ctx.eventsOf('playerJoined')[0];
+    const payload = joined?.payload as { player: { nickname: string; isDeveloper: boolean } };
+    expect(payload.player.isDeveloper).toBe(true);
+  });
+
+  it('大小写不同同样识别，与房间内昵称唯一性判定一致', () => {
+    ctx = createTestRoom({ nicknames: ['HedgehogSong'] });
+    expect(projectRoomState(ctx.room, ctx.host.id).players[0]?.isDeveloper).toBe(true);
+  });
+
+  it('普通玩家不会被误标', () => {
+    ctx = createTestRoom({ nicknames: ['普通玩家甲'] });
+    expect(projectRoomState(ctx.room, ctx.host.id).players[0]?.isDeveloper).toBe(false);
+  });
+});
+
+describe('揭晓展示时长', () => {
+  it('默认配置就是 5 秒', () => {
+    expect(defaultSettings().revealDurationMs).toBe(DEFAULT_REVEAL_DURATION_MS);
+    expect(DEFAULT_REVEAL_DURATION_MS).toBe(5_000);
+  });
+
+  it('揭晓后满 5 秒自动进入下一轮，第 4.999 秒仍在当前轮', () => {
+    ctx = createTestRoom({ nicknames: ['甲一', '乙二'] });
+    ctx.room.startGame(ctx.host.id);
+    ctx.room.submitWord(ctx.host.id, '月亮');
+    ctx.room.submitWord(ctx.byNickname('乙二').id, '太阳');
+
+    expect(ctx.room.data.session?.currentRound).toBe(1);
+    vi.advanceTimersByTime(DEFAULT_REVEAL_DURATION_MS - 1);
+    expect(ctx.room.data.session?.currentRound).toBe(1);
+    vi.advanceTimersByTime(2);
+    expect(ctx.room.data.session?.currentRound).toBe(2);
   });
 });
