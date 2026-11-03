@@ -1,7 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client';
 import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from '@jiaowoplay/shared';
-import type { Ack, ErrorPayload, GameEndedPayload, JoinResult, RoundRevealedPayload } from '@jiaowoplay/shared';
+import type {
+  Ack,
+  ErrorPayload,
+  GameEndedPayload,
+  HistoricalSession,
+  JoinResult,
+  RoundRevealedPayload,
+} from '@jiaowoplay/shared';
 import { createServerBundle, type ServerBundle } from '../src/bootstrap.js';
 
 const BASE_URL = 'http://127.0.0.1';
@@ -312,5 +319,56 @@ describe('Socket.IO 完整对局', () => {
     await expect(emitAck(hostSocket, 'submitWord', { word: '月亮' })).resolves.toMatchObject({
       roundNumber: 1,
     });
+  });
+
+  it('揭晓前的提交词不会从历史接口泄露，揭晓后恢复可见', async () => {
+    const SECRET = '绝密灯塔9527';
+    const created = await httpCreate('甲一', {
+      submitTimeoutMs: 60_000,
+      revealDurationMs: 1_000,
+    });
+    const joined = await httpJoin(created.code, '乙二');
+
+    const sa = await connect();
+    const sb = await connect();
+    await emitAck<JoinResult>(sa, 'reconnectRoom', {
+      code: created.code,
+      reconnectToken: created.reconnectToken,
+    });
+    await emitAck<JoinResult>(sb, 'reconnectRoom', {
+      code: joined.code,
+      reconnectToken: joined.reconnectToken,
+    });
+    const started = await emitAck<{ sessionId: string }>(sa, 'startGame');
+
+    await emitAck(sa, 'submitWord', { word: SECRET });
+
+    // 本轮还在收集、尚未揭晓：两个历史接口都不许出现这个词
+    const history = await json<{ code: string; sessions: HistoricalSession[] }>(
+      `/api/rooms/${created.code}/history`,
+    );
+    const before = await json<{ session: HistoricalSession }>(
+      `/api/sessions/${started.sessionId}`,
+    );
+    expect(JSON.stringify(history.body)).not.toContain(SECRET);
+    expect(JSON.stringify(before.body)).not.toContain(SECRET);
+
+    const liveRound = before.body.session.rounds[0];
+    expect(liveRound?.revealedAt).toBeNull();
+    expect(liveRound?.submissions).toEqual([]);
+    // 进行中的轮次仍然可见（知道现在是第几轮），只是不含内容
+    expect(liveRound?.roundNumber).toBe(1);
+
+    // 揭晓之后同一轮的词必须恢复可见，证明只是隐藏未揭晓轮次而非砍掉历史
+    await emitAck(sb, 'submitWord', { word: SECRET });
+    const ended = await waitFor<GameEndedPayload>(sb, 'gameEnded');
+    expect(ended.outcome).toBe('ALL_MET');
+
+    const after = await json<{ session: HistoricalSession }>(
+      `/api/sessions/${started.sessionId}`,
+    );
+    const revealedRound = after.body.session.rounds[0];
+    expect(revealedRound?.revealedAt).not.toBeNull();
+    expect(revealedRound?.submissions.map((s) => s.word)).toEqual([SECRET, SECRET]);
   });
 });

@@ -263,11 +263,16 @@ export class HistoryRepository {
     const nicknameOf = new Map(players.map((p) => [p.playerId, p.nickname]));
 
     const historicalRounds: HistoricalRound[] = rounds.map((round) => {
-      const rows = submissionStmt.all(round.id) as SubmissionRow[];
+      // 提交词在提交时就落库（掉电不丢），但揭晓前绝不能从历史接口读出来，
+      // 否则玩家轮询本接口即可看到别人本轮的词，破坏「提交前互不可见」的核心规则。
+      const revealed = round.revealed_at !== null;
+      const rows = revealed ? (submissionStmt.all(round.id) as SubmissionRow[]) : [];
       return {
         roundNumber: round.round_number,
         allSame: round.all_same === 1,
-        partialMeetings: parseJson<PartialMeeting[]>(round.partial_meetings, []),
+        partialMeetings: revealed
+          ? parseJson<PartialMeeting[]>(round.partial_meetings, [])
+          : [],
         startedAt: round.started_at,
         revealedAt: round.revealed_at,
         submissions: rows.map((row) => ({
