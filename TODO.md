@@ -15,10 +15,38 @@
 回归测试：`server/test/integration.test.ts` 的
 「揭晓前的提交词不会从历史接口泄露，揭晓后恢复可见」。
 
-**副作用（已知且可接受）**：房主在收集阶段强制结束本局时，那一轮从未揭晓，
+**副作用（已知，已确认可接受）**：房主在收集阶段强制结束本局时，那一轮从未揭晓，
 其提交词将永久无法通过历史接口读出（数据仍在 `submissions` 表里，只是不外泄）。
 
+已于 2026-11-03 部署上线，并在公网复验：揭晓前两个端点均查不到词，
+揭晓后同一轮完整可读、`outcome=ALL_MET`。
+
 ## 待办
+
+### /assets 缺失资源返回 200 + index.html（下次发版一并修）
+
+SPA 兜底路由 `server/src/app.ts` 里的
+
+```ts
+app.get(/^(?!\/api|\/health|\/socket\.io).*/, ...)
+```
+
+没有排除 `/assets`，所以请求一个**不存在**的哈希资源时，不会得到 404，
+而是拿到 `200 + text/html`（index.html 本身）。已实测确认：
+
+```
+旧哈希 → Content-Type: text/html; Cache-Control: public, max-age=0   → <!doctype html>…
+新哈希 → Content-Type: application/javascript; … immutable            → var tp=Object.defineProperty…
+```
+
+**影响**：浏览器缓存了旧版 HTML 时，它引用的旧哈希产物已被清理，
+于是把一段 HTML 当 JS 执行，报 `Unexpected token '<'` 这类难懂的错，
+而不是干净的 404；也会掩盖发版不匹配的问题。
+
+**修法**（一行）：把 `/assets` 加进兜底正则的排除项，缺失资源自然回落到 404。
+
+**决定**：不单独发版（避免多开 SSH 连接触发 IP 封禁），
+等下一次功能改动或配置 HTTPS 时一起改一起发。
 
 ### HTTPS / 域名
 
