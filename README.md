@@ -121,11 +121,33 @@ server → client：`roomState` `reconnected` `playerJoined` `playerLeft` `playe
 
 ### 扩展新游戏
 
+后端：
+
 1. 在 `shared/src/types.ts` 的 `GameType` 中加类型；
 2. 实现 `server/src/games/Game.ts` 的 `GameDefinition`；
 3. 在 `server/src/games/registry.ts` 中 `registerGame(...)`。
 
 房间状态机、成员管理、重连、持久化均可复用，无需改动。
+
+前端只需两步，路由不用改：
+
+1. 写一个游戏面板组件（参考 `web/src/components/games/sameword/GamePanel.tsx`，
+   它接收 `GamePanelProps`：`room / selfId / serverOffset / busy / title / onSubmit`）；
+2. 在 `web/src/games/registry.ts` 的 `GAMES` 里加一条，填 `slug`、`gameType`、
+   卡片文案与 `panel`。
+
+`GAMES` 是平台首页卡片、`/play/:slug` 大厅页、房间页面板选择的唯一来源：
+首页会自动多出这张卡片，`/play/<新slug>` 自动可用，房间页按服务端返回的
+`room.gameType` 自动挑对应面板。
+
+### 前端路由
+
+| 路径 | 页面 | 说明 |
+| --- | --- | --- |
+| `/` | 平台首页 | 平台介绍 + 游戏卡片列表 |
+| `/play/:slug` | 游戏大厅 | 设昵称、创建/加入房间、玩法介绍 |
+| `/room/:code` | 房间页 | 成员、房主控制、对局面板 |
+| 其它 | 404 | |
 
 ---
 
@@ -243,8 +265,10 @@ curl -s http://127.0.0.1:3000/health   # 房间/玩家计数
 │  └─ test/           vitest 单元 + 集成测试
 ├─ web/
 │  └─ src/
-│     ├─ pages/       首页 / 房间页 / 404
-│     ├─ components/  成员列表、房主控制、游戏面板、揭晓区、历史等
+│     ├─ games/       registry.ts —— 游戏注册表：首页卡片、/play/:slug、面板选择都源于此
+│     ├─ pages/       平台首页 / 游戏大厅 / 房间页 / 404
+│     ├─ components/  成员列表、房主控制、揭晓区、历史等通用组件
+│     │  └─ games/sameword/  同词相见专属组件
 │     ├─ hooks/       useRoom（连接与状态）、useNow（倒计时）
 │     └─ lib/         REST 客户端、Socket 单例、本地存储
 └─ deploy/      deploy.sh（tar over ssh + systemd）、remote-setup.sh、

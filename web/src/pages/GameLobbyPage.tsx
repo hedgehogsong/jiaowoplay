@@ -1,6 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { NICKNAME_MAX_LENGTH, NICKNAME_MIN_LENGTH, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from '@jiaowoplay/shared';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import {
+  NICKNAME_MAX_LENGTH,
+  NICKNAME_MIN_LENGTH,
+  ROOM_CODE_ALPHABET,
+  ROOM_CODE_LENGTH,
+} from '@jiaowoplay/shared';
+import { findGameBySlug } from '../games/registry.js';
 import { ApiError, api } from '../lib/api.js';
 import { loadLastRoomCode, loadNickname, saveNickname, saveRoomCredentials } from '../lib/storage.js';
 
@@ -10,17 +16,42 @@ function sanitizeCode(raw: string): string {
   return (raw.toUpperCase().match(CODE_PATTERN) ?? []).join('').slice(0, ROOM_CODE_LENGTH);
 }
 
-export default function HomePage() {
+export default function GameLobbyPage() {
   const navigate = useNavigate();
+  const game = findGameBySlug(useParams<{ slug: string }>().slug);
   const [nickname, setNickname] = useState(loadNickname);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
   const lastRoom = loadLastRoomCode();
 
+  if (!game) {
+    return (
+      <div className="page page--center">
+        <section className="panel panel--error">
+          <h2>没有找到这个游戏</h2>
+          <p className="hint">它可能已经下线，或者链接拼错了。</p>
+          <Link className="btn btn--primary" to="/">
+            返回平台首页
+          </Link>
+        </section>
+      </div>
+    );
+  }
+
   const nicknameLength = Array.from(nickname.trim()).length;
-  const nicknameValid = nicknameLength >= NICKNAME_MIN_LENGTH && nicknameLength <= NICKNAME_MAX_LENGTH;
+  const nicknameValid =
+    nicknameLength >= NICKNAME_MIN_LENGTH && nicknameLength <= NICKNAME_MAX_LENGTH;
   const codeValid = code.length === ROOM_CODE_LENGTH;
+
+  const enter = (result: Awaited<ReturnType<typeof api.createRoom>>) => {
+    saveRoomCredentials({
+      code: result.code,
+      playerId: result.playerId,
+      reconnectToken: result.reconnectToken,
+    });
+    navigate(`/room/${result.code}`);
+  };
 
   const handleCreate = async () => {
     if (!nicknameValid) {
@@ -32,13 +63,7 @@ export default function HomePage() {
     try {
       const trimmed = nickname.trim();
       saveNickname(trimmed);
-      const result = await api.createRoom(trimmed);
-      saveRoomCredentials({
-        code: result.code,
-        playerId: result.playerId,
-        reconnectToken: result.reconnectToken,
-      });
-      navigate(`/room/${result.code}`);
+      enter(await api.createRoom(trimmed, game.gameType));
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : '创建房间失败，请重试');
     } finally {
@@ -60,13 +85,7 @@ export default function HomePage() {
     try {
       const trimmed = nickname.trim();
       saveNickname(trimmed);
-      const result = await api.joinRoom(code, trimmed);
-      saveRoomCredentials({
-        code: result.code,
-        playerId: result.playerId,
-        reconnectToken: result.reconnectToken,
-      });
-      navigate(`/room/${result.code}`);
+      enter(await api.joinRoom(code, trimmed));
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : '加入房间失败，请重试');
     } finally {
@@ -75,20 +94,40 @@ export default function HomePage() {
   };
 
   return (
-    <div className="page page--home">
-      <header className="hero">
-        <p className="hero__eyebrow">线上小游戏聚合平台</p>
-        <h1 className="hero__title">交我PLAY</h1>
-        <p className="hero__subtitle">
-          不用注册，设个昵称就能开房。首个游戏「同词相见」：每轮各自写一个词，全员写出同一个词就相遇成功。
-        </p>
+    <div className="page page--lobby">
+      <header className="topbar">
+        <Link className="topbar__brand" to="/">
+          交我PLAY
+        </Link>
+        <span className="topbar__crumb">/</span>
+        <span className="topbar__crumb topbar__crumb--current">{game.name}</span>
+        <div className="topbar__right">
+          <Link className="btn btn--ghost btn--sm" to="/">
+            换个游戏
+          </Link>
+        </div>
       </header>
+
+      <section className="lobby-hero">
+        <span className="lobby-hero__mark" aria-hidden style={{ ['--accent' as string]: game.accent }}>
+          {game.mark}
+        </span>
+        <div>
+          <h1 className="lobby-hero__name">{game.name}</h1>
+          <p className="lobby-hero__tagline">{game.tagline}</p>
+          <p className="lobby-hero__meta">
+            {game.players} · {game.duration}
+          </p>
+        </div>
+      </section>
 
       <main className="home-grid">
         <section className="panel">
           <h2>1. 设置昵称</h2>
           <label className="field">
-            <span className="field__label">昵称（{NICKNAME_MIN_LENGTH}-{NICKNAME_MAX_LENGTH} 个字符，房间内不可重名）</span>
+            <span className="field__label">
+              昵称（{NICKNAME_MIN_LENGTH}-{NICKNAME_MAX_LENGTH} 个字符，房间内不可重名）
+            </span>
             <input
               className="input"
               value={nickname}
@@ -108,10 +147,12 @@ export default function HomePage() {
             disabled={busy !== null || !nicknameValid}
             onClick={handleCreate}
           >
-            {busy === 'create' ? '创建中…' : '创建房间'}
+            {busy === 'create' ? '创建中…' : `创建${game.name}房间`}
           </button>
 
-          <div className="divider"><span>或</span></div>
+          <div className="divider">
+            <span>或</span>
+          </div>
 
           <label className="field">
             <span className="field__label">房间号</span>
@@ -136,28 +177,32 @@ export default function HomePage() {
             {busy === 'join' ? '加入中…' : '加入房间'}
           </button>
 
-          {error && <p className="alert" role="alert">{error}</p>}
+          {error && (
+            <p className="alert" role="alert">
+              {error}
+            </p>
+          )}
           {lastRoom && (
-            <button type="button" className="btn btn--ghost btn--block" onClick={() => navigate(`/room/${lastRoom}`)}>
+            <button
+              type="button"
+              className="btn btn--ghost btn--block"
+              onClick={() => navigate(`/room/${lastRoom}`)}
+            >
               回到上次的房间 {lastRoom}
             </button>
           )}
         </section>
 
         <section className="panel panel--rules">
-          <h2>同词相见怎么玩</h2>
+          <h2>玩法介绍</h2>
+          <p className="hint">{game.summary}</p>
           <ol className="rules rules--ordered">
-            <li>房主开局后，房间内所有在线玩家进入第一轮。</li>
-            <li>每轮每人提交一个词，提交前看不到别人的，全员提交后统一揭晓。</li>
-            <li>第一轮自由输入；之后你的词要同时关联上一轮揭晓的所有词。</li>
-            <li>所有人写出完全相同的词（去首尾空格后比较）即全员相遇，本局胜利。</li>
-            <li>只有部分人同词时不算胜利，但会记录「局部相遇」并进入下一轮。</li>
-            <li>超时未提交视为弃权；可判定人数不足 2 人或轮次用尽则平局。</li>
+            {game.rules.map((rule, index) => (
+              <li key={index}>{rule}</li>
+            ))}
           </ol>
         </section>
       </main>
-
-      <footer className="footer">房间最多 8 人，至少 2 人开局 · 刷新页面会自动回到原房间</footer>
     </div>
   );
 }

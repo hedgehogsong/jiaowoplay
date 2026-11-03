@@ -12,7 +12,7 @@ import MemberList from '../components/MemberList.js';
 import NicknameEditor from '../components/NicknameEditor.js';
 import RoomCodeBadge from '../components/RoomCodeBadge.js';
 import ToastStack from '../components/ToastStack.js';
-import GamePanel from '../components/games/sameword/GamePanel.js';
+import { findGameByType, gamePath } from '../games/registry.js';
 import { useRoom } from '../hooks/useRoom.js';
 import { loadNickname } from '../lib/storage.js';
 
@@ -71,6 +71,11 @@ export default function RoomPage() {
 
   const { room, status, needJoin, toasts, notice, busy, serverOffset, selfId, isHost } = hook;
 
+  // 面板由注册表按房间的 gameType 选择，RoomPage 本身不绑定任何具体游戏
+  const gameEntry = findGameByType(room?.gameType);
+  const Panel = gameEntry?.panel;
+  const gameName = gameEntry?.name ?? '游戏';
+
   if (!validCode) {
     return (
       <div className="page page--center">
@@ -93,7 +98,17 @@ export default function RoomPage() {
   return (
     <div className="page page--room">
       <header className="topbar">
-        <Link className="topbar__brand" to="/">交我PLAY</Link>
+        <Link className="topbar__brand" to="/">
+          交我PLAY
+        </Link>
+        <span className="topbar__crumb">/</span>
+        {gameEntry ? (
+          <Link className="topbar__crumb topbar__crumb--current" to={gamePath(gameEntry)}>
+            {gameName}
+          </Link>
+        ) : (
+          <span className="topbar__crumb topbar__crumb--current">{gameName}</span>
+        )}
         <RoomCodeBadge code={room?.code ?? rawCode} />
         <div className="topbar__right">
           {room?.you && (
@@ -166,13 +181,23 @@ export default function RoomPage() {
               )}
             </section>
 
-            <GamePanel
-              room={room}
-              selfId={selfId}
-              serverOffset={serverOffset}
-              busy={busy}
-              onSubmitWord={hook.submitWord}
-            />
+            {Panel ? (
+              <Panel
+                room={room}
+                selfId={selfId}
+                serverOffset={serverOffset}
+                busy={busy}
+                title={gameName}
+                onSubmit={hook.submitWord}
+              />
+            ) : (
+              <section className="panel panel--game">
+                <h2>暂不支持的游戏</h2>
+                <p className="hint">
+                  这个房间使用的游戏「{room.gameType}」还没有对应的前端面板，请刷新或联系管理员更新。
+                </p>
+              </section>
+            )}
           </>
         )}
       </main>

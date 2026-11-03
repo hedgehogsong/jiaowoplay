@@ -10,7 +10,8 @@ interface Props {
   selfId: string | null;
   serverOffset: number;
   busy: boolean;
-  onSubmitWord: (word: string) => Promise<void>;
+  title: string;
+  onSubmit: (value: string) => Promise<void>;
 }
 
 /** 本轮揭晓后对局是否直接结束（全员同词 / 轮次上限 / 可判定人数不足） */
@@ -24,7 +25,7 @@ function isTerminalRound(game: RoomStateView['game'], round: RoundView | null): 
   return eligible < 2;
 }
 
-export default function GamePanel({ room, selfId, serverOffset, busy, onSubmitWord }: Props) {
+export default function GamePanel({ room, selfId, serverOffset, busy, title, onSubmit }: Props) {
   const now = useNow(500);
   const game = room.game;
   const me = room.players.find((player) => player.id === selfId) ?? null;
@@ -32,7 +33,7 @@ export default function GamePanel({ room, selfId, serverOffset, busy, onSubmitWo
   if (!game) {
     return (
       <div className="panel panel--game">
-        <h2>同词相见</h2>
+        <h2>{title}</h2>
         <p className="empty">
           等待房主开始游戏。每轮所有人各自提交一个词，全员提交完全相同的词即相遇成功。
         </p>
@@ -54,7 +55,7 @@ export default function GamePanel({ room, selfId, serverOffset, busy, onSubmitWo
 
   const header = (
     <div className="game-head">
-      <h2>同词相见</h2>
+      <h2>{title}</h2>
       <div className="game-head__meta">
         <span className="chip">
           第 {game.currentRound}/{game.maxRounds} 轮
@@ -111,7 +112,7 @@ export default function GamePanel({ room, selfId, serverOffset, busy, onSubmitWo
           activeCount={activeCount}
           maxLength={room.limits.wordMaxLength}
           busy={busy}
-          onSubmit={onSubmitWord}
+          onSubmit={onSubmit}
         />
       )}
 

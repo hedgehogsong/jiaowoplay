@@ -1,4 +1,4 @@
-import type { ErrorPayload, JoinResult, PublicRoomInfo } from '@jiaowoplay/shared';
+import type { ErrorPayload, GameType, JoinResult, PublicRoomInfo } from '@jiaowoplay/shared';
 
 export class ApiError extends Error {
   readonly code: string;
@@ -41,10 +41,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  createRoom(nickname: string, settings?: Record<string, unknown>): Promise<JoinResult> {
+  createRoom(
+    nickname: string,
+    gameType?: GameType,
+    settings?: Record<string, unknown>,
+  ): Promise<JoinResult> {
     return request<JoinResult>('/api/rooms', {
       method: 'POST',
-      body: JSON.stringify(settings ? { nickname, settings } : { nickname }),
+      body: JSON.stringify({
+        nickname,
+        ...(gameType ? { gameType } : {}),
+        ...(settings ? { settings } : {}),
+      }),
     });
   },
 
