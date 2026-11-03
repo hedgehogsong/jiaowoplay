@@ -23,6 +23,12 @@ export function createApp({ config, manager, history }: AppDeps): express.Expres
   app.disable('x-powered-by');
   if (config.isProduction) app.set('trust proxy', 1);
 
+  // 纯 HTTP 访问时不能启用 upgrade-insecure-requests，
+  // 否则浏览器会把静态资源升级到 https，未配 443 时直接白屏。
+  const publicOriginIsHttps = config.corsOrigins.some((origin) =>
+    origin.toLowerCase().startsWith('https://'),
+  );
+
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -36,9 +42,15 @@ export function createApp({ config, manager, history }: AppDeps): express.Expres
           frameAncestors: ["'none'"],
           baseUri: ["'self'"],
           formAction: ["'self'"],
+          upgradeInsecureRequests: publicOriginIsHttps ? [] : null,
         },
       },
       crossOriginEmbedderPolicy: false,
+      // COOP / Origin-Agent-Cluster 仅在安全上下文生效；
+      // 纯 HTTP + 裸 IP 时浏览器会直接忽略并各自报一条控制台错误，
+      // 因此非 https 时不下发，等启用 TLS 后自动恢复。
+      crossOriginOpenerPolicy: publicOriginIsHttps ? { policy: 'same-origin' } : false,
+      originAgentCluster: publicOriginIsHttps,
       referrerPolicy: { policy: 'same-origin' },
     }),
   );
@@ -76,7 +88,16 @@ export function createApp({ config, manager, history }: AppDeps): express.Expres
 
   if (config.staticDir && fs.existsSync(config.staticDir)) {
     const indexHtml = path.join(config.staticDir, 'index.html');
-    app.use(express.static(config.staticDir, { index: false, maxAge: '1h' }));
+    // Vite 产物带内容哈希，可长期不可变缓存；index.html 仍需每次回源
+    app.use(
+      '/assets',
+      express.static(path.join(config.staticDir, 'assets'), {
+        index: false,
+        maxAge: '1y',
+        immutable: true,
+      }),
+    );
+    app.use(express.static(config.staticDir, { index: false, maxAge: '5m' }));
     app.get(/^(?!\/api|\/health|\/socket\.io).*/, (_req, res) => {
       res.sendFile(indexHtml);
     });

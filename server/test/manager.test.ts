@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { MAX_PLAYERS } from '@jiaowoplay/shared';
+import { MAX_PLAYERS, PLAYER_OFFLINE_GRACE_MS } from '@jiaowoplay/shared';
 import { AppError } from '../src/domain/errors.js';
 import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from '@jiaowoplay/shared';
 import { RoomManager } from '../src/rooms/RoomManager.js';
@@ -119,6 +119,19 @@ describe('RoomManager', () => {
 
     const removed = manager.sweepOnce(Date.now() + 6 * 60 * 1000);
     expect(removed).toContain(code);
+    expect(manager.getRoom(code)).toBeUndefined();
+  });
+
+  it('只走 REST 建档、从未挂载 socket 的房间也会被回收', () => {
+    // 回归：这类玩家一直 isOnline=false，早先 offlineSince 为 null 导致永远回收不掉，
+    // 配合建房限流可以稳定堆积僵尸房间。
+    const { room } = manager.createRoom({ nickname: '僵尸房主' });
+    const code = room.code;
+    manager.joinRoom(code, '僵尸访客');
+    const created = Date.now();
+
+    expect(manager.sweepOnce(created + PLAYER_OFFLINE_GRACE_MS - 1)).toEqual([]);
+    expect(manager.sweepOnce(created + PLAYER_OFFLINE_GRACE_MS + 1)).toContain(code);
     expect(manager.getRoom(code)).toBeUndefined();
   });
 

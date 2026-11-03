@@ -132,37 +132,78 @@ server → client：`roomState` `reconnected` `playerJoined` `playerLeft` `playe
 ## 6. 生产构建与部署
 
 ```bash
-npm run build     # 产出 server/dist 与 web/dist
+npm run build     # 产出 shared/dist、server/dist、web/dist
+```
+
+### 服务器首次准备（一次性）
+
+`deploy.sh` 只负责发布，不安装运行时：
+
+```bash
+apt-get install -y nginx
+# Node 官方 tarball：免改 apt 源、免动 PATH，回滚只需删目录
+curl -fsSL -o /tmp/node.tar.xz https://nodejs.org/dist/v24.22.2/node-v24.22.2-linux-x64.tar.xz
+tar xJf /tmp/node.tar.xz -C /opt && mv /opt/node-v24.22.2-linux-x64 /opt/node-v24.22.2
+useradd --system --home-dir /opt/jiaowoplay --shell /usr/sbin/nologin jiaowoplay
 ```
 
 ### 方式 A：deploy.sh（推荐）
 
-凭据只通过环境变量或交互输入提供，脚本不会把任何密码写进仓库。
+凭据与公网地址只通过环境变量提供，脚本不会把任何密钥写进仓库、日志或提交记录。
 
 ```bash
 JWP_HOST=deploy@你的服务器IP \
+JWP_ORIGIN=https://play.example.com \
 JWP_DOMAIN=play.example.com \
-JWP_SESSION_SECRET="$(openssl rand -hex 32)" \
 ./deploy/deploy.sh
 ```
 
-脚本流程：本地测试与构建 → rsync 源码 → 服务器 `npm ci` + 构建 → 生成 `.env`（权限 600）
-→ PM2 reload（无 PM2 时回退 systemd）→ 可选安装 Nginx 配置 → `/health` 健康检查。
+| 变量 | 必填 | 说明 |
+| --- | --- | --- |
+| `JWP_HOST` | 是 | ssh 目标（`user@host` 或 `~/.ssh/config` 里的别名） |
+| `JWP_ORIGIN` | 是 | 公网访问地址，写入服务器 `.env` 的 `CORS_ORIGIN` |
+| `JWP_DOMAIN` | 否 | 提供时自动安装并 reload Nginx 站点 |
+| `JWP_APP_DIR` | 否 | 应用目录，默认 `/opt/jiaowoplay` |
+| `JWP_NODE_DIR` | 否 | Node 运行时目录，默认 `/opt/node-v24.22.2` |
+| `JWP_PORT` | 否 | SSH 端口，默认 22 |
+| `JWP_SKIP_TEST` | 否 | 设为 `1` 跳过本地测试（不建议） |
 
-> 使用 SSH 密码登录需安装 `sshpass` 并设置 `JWP_SSH_PASSWORD`；**部署完成后请改用 SSH key 并修改临时密码。**
+流程：本地 `npm test` + `npm run build` → **tar over ssh** 上传产物（服务器不需要 rsync）
+→ 服务器 `npm ci --omit=dev`（**不在服务器上构建**，小内存机器更稳）→ 校验 better-sqlite3 原生绑定
+→ 生成 `.env`（`SESSION_SECRET` 在服务器随机生成、权限 600、脚本不打印）
+→ 安装并启动 systemd 服务 → 可选 Nginx → `/health` 健康检查。
+
+`deploy/remote-setup.sh` 随包上传并在服务器执行，可单独重跑：它是幂等的，且已存在的 `.env` 不会被覆盖。
+
+> 脚本用 `BatchMode=yes`，**只做 key 认证**，不会尝试密码登录、不使用 sshpass。
 
 ### 方式 B：手动
 
-1. 服务器上创建低权限用户与目录，例如 `/opt/jiaowoplay`，同步仓库（不含 `node_modules`、`.env`）。
-2. `npm ci && npm run build`。
-3. 配置 `.env`（见第 2 节），`SESSION_SECRET` 用随机值。
-4. 二选一启动：
+1. 同步仓库到 `/opt/jiaowoplay`（不含 `node_modules`、`.env`），并 `chown -R jiaowoplay:jiaowoplay`。
+2. `PATH=/opt/node-v24.22.2/bin:$PATH npm ci --omit=dev`（原生模块按本机平台安装）。
+3. 按第 2 节写 `.env`，`chmod 600`，`SESSION_SECRET` 用 `openssl rand -hex 32`。
+4. 守护二选一：
+   - systemd：`sed -e "s|__NODE_BIN__|/opt/node-v24.22.2/bin/node|g" -e "s|__APP_DIR__|/opt/jiaowoplay|g" deploy/jiaowoplay.service.example > /etc/systemd/system/jiaowoplay.service && systemctl daemon-reload && systemctl enable --now jiaowoplay`
    - PM2：`cp deploy/ecosystem.config.cjs.example ecosystem.config.cjs`，改 env 后 `pm2 start ecosystem.config.cjs && pm2 save`
-   - systemd：`sudo cp deploy/jiaowoplay.service.example /etc/systemd/system/jiaowoplay.service`，改 Environment 后 `systemctl enable --now jiaowoplay`
-5. Nginx：`cp deploy/nginx.conf.example /etc/nginx/conf.d/jiaowoplay.conf`，替换 `__DOMAIN__`，`nginx -t && systemctl reload nginx`。
-   配置中已包含 WebSocket upgrade 头与 65s 读超时（需大于 Socket.IO 的 pingTimeout）。
+5. Nginx：`sed "s/__DOMAIN__/你的域名或IP/g" deploy/nginx.conf.example > /etc/nginx/conf.d/jiaowoplay.conf`，
+   删除 Debian 自带的 `/etc/nginx/sites-enabled/default`（否则争抢 80 的 `default_server`），
+   再 `nginx -t && systemctl reload nginx`。示例配置已包含 WebSocket upgrade、`/socket.io/` 120s 读超时与放宽的代理缓冲。
 
-**注意**：`ecosystem.config.cjs` 中 `instances` 必须为 1 —— 房间状态在进程内存中，多实例会状态不一致。
+**务必注意**
+
+- 房间与对局状态保存在进程内存，**只能单实例运行**（PM2 的 `instances` 必须为 1）。
+- 纯 HTTP 部署时 `CORS_ORIGIN` 必须写成 `http://...`：应用据此关闭 CSP 的 `upgrade-insecure-requests`，
+  否则浏览器会把静态资源升级到 https，未配 443 时直接白屏。
+- 运行配置放在 `.env` 而不是 systemd 的 `Environment=`，避免 `systemctl show` 明文读出密钥。
+
+### 运维命令
+
+```bash
+systemctl status jiaowoplay            # 服务状态
+journalctl -u jiaowoplay -f            # 实时日志
+systemctl restart jiaowoplay           # 重启（内存中的房间会丢失，历史仍在 SQLite）
+curl -s http://127.0.0.1:3000/health   # 房间/玩家计数
+```
 
 ---
 
@@ -178,6 +219,11 @@ JWP_SESSION_SECRET="$(openssl rand -hex 32)" \
 | 提示「房间内已有玩家使用该昵称」 | 掉线玩家仍占着昵称；换昵称，或用原浏览器标签页重连 |
 | 数据库报错但游戏仍能玩 | 历史写入失败只记日志不中断对局；检查 `DB_PATH` 目录权限与磁盘空间 |
 | 端口被占用 | 改 `.env` 的 `PORT`，并同步修改 `web/vite.config.ts` 的代理目标（`VITE_BACKEND`） |
+| 线上首页白屏，控制台报 `ERR_CONNECTION_REFUSED https://…/assets/…` | 纯 HTTP 部署却把 `CORS_ORIGIN` 写成了 `https://`，CSP 强制升级了请求；改回 `http://` 后重启服务 |
+| 服务器 `npm ci` 后 better-sqlite3 找不到原生绑定 | 预编译包下载失败；`apt-get install -y build-essential python3` 后 `npm rebuild better-sqlite3` |
+| 服务器 `npm` 执行报 `env: 'node': No such file` | 用 tarball 安装时 npm 的 shebang 需要 node 在 PATH 上；`export PATH=/opt/node-v24.22.2/bin:$PATH` |
+| Nginx error.log 反复出现 `upstream response is buffered to a temporary file` | 放宽 `proxy_buffers` 并设 `proxy_max_temp_file_size 0`（示例配置已含） |
+| `nginx -t` 报 duplicate default server | 未删除 Debian 自带的 `/etc/nginx/sites-enabled/default` |
 
 ---
 
@@ -201,5 +247,6 @@ JWP_SESSION_SECRET="$(openssl rand -hex 32)" \
 │     ├─ components/  成员列表、房主控制、游戏面板、揭晓区、历史等
 │     ├─ hooks/       useRoom（连接与状态）、useNow（倒计时）
 │     └─ lib/         REST 客户端、Socket 单例、本地存储
-└─ deploy/      Nginx / PM2 / systemd 示例与 deploy.sh
+└─ deploy/      deploy.sh（tar over ssh + systemd）、remote-setup.sh、
+                Nginx / systemd / PM2 示例配置
 ```

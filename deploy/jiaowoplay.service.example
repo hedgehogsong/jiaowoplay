@@ -1,44 +1,44 @@
-# 交我PLAY systemd 服务示例（PM2 的替代方案，二选一）
+# 交我PLAY systemd 服务示例
 #
-# 部署：
-#   sudo cp deploy/jiaowoplay.service.example /etc/systemd/system/jiaowoplay.service
-#   修改 Environment 各项后：
-#   sudo systemctl daemon-reload && sudo systemctl enable --now jiaowoplay
+# 由 deploy/remote-setup.sh 替换占位符后安装到 /etc/systemd/system/jiaowoplay.service：
+#   sed -e "s|__NODE_BIN__|/opt/node-v24.22.2/bin/node|g" \
+#       -e "s|__APP_DIR__|/opt/jiaowoplay|g" \
+#       deploy/jiaowoplay.service.example > /etc/systemd/system/jiaowoplay.service
+#   systemctl daemon-reload && systemctl enable --now jiaowoplay
 #
-# 安全提示：用专用低权限用户运行，不要用 root。
-#   sudo useradd --system --create-home --home-dir /opt/jiaowoplay jiaowoplay
+# 运行配置（NODE_ENV / PORT / DB_PATH / CORS_ORIGIN / SESSION_SECRET）放在
+# __APP_DIR__/.env 里由应用自行加载，不要写进 unit —— systemctl show 会明文读出 Environment。
+#
+# 安全：用专用低权限用户运行，不要用 root。
+#   useradd --system --home-dir /opt/jiaowoplay --shell /usr/sbin/nologin jiaowoplay
 
 [Unit]
 Description=JiaoWoPLAY game platform (Node.js + Socket.IO)
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=jiaowoplay
 Group=jiaowoplay
-WorkingDirectory=/opt/jiaowoplay
-ExecStart=/usr/bin/node /opt/jiaowoplay/server/dist/index.js
+WorkingDirectory=__APP_DIR__
+ExecStart=__NODE_BIN__ __APP_DIR__/server/dist/index.js
 Restart=on-failure
 RestartSec=3
 KillSignal=SIGTERM
 TimeoutStopSec=10
 
 Environment=NODE_ENV=production
-Environment=PORT=3000
-Environment=HOST=127.0.0.1
-Environment=DB_PATH=/opt/jiaowoplay/server/data/jiaowoplay.sqlite
-Environment=SESSION_SECRET=CHANGE_ME_TO_A_RANDOM_SECRET
-Environment=CORS_ORIGIN=https://play.example.com
-Environment=STATIC_DIR=/opt/jiaowoplay/web/dist
-Environment=LOG_LEVEL=info
 
-# 加固
+# 加固：ProtectSystem=full 只把 /usr /boot /etc 挂成只读，
+# 应用目录与数据目录仍可写（数据目录显式列入 ReadWritePaths）。
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ReadWritePaths=/opt/jiaowoplay/server/data
+ProtectHome=true
+ReadWritePaths=__APP_DIR__/server/data
+LimitNOFILE=65536
 
-# 日志进 journald
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=jiaowoplay

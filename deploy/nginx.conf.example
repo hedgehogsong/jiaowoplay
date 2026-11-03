@@ -1,13 +1,20 @@
 # 交我PLAY Nginx 反向代理示例
 #
-# 部署时复制为 /etc/nginx/conf.d/jiaowoplay.conf，
-# 把 __DOMAIN__ 替换成你的域名（或服务器 IP），然后：
+# 部署：
+#   sed "s/__DOMAIN__/你的域名或公网IP/g" deploy/nginx.conf.example > /etc/nginx/conf.d/jiaowoplay.conf
+#   rm -f /etc/nginx/sites-enabled/default   # 否则与 Debian 自带站点争抢 80 的 default_server
 #   nginx -t && systemctl reload nginx
 #
 # 要点：
 # - Node 只监听 127.0.0.1:3000，公网流量一律经 Nginx
-# - /socket.io 需要 WebSocket upgrade 头，否则实时连接会退化为轮询甚至失败
-# - proxy_read_timeout 需大于 Socket.IO 的 pingTimeout(25s) + 余量
+# - /socket.io/ 必须透传 Upgrade 头，否则实时连接会退化为轮询甚至失败
+# - /socket.io/ 的 read_timeout 需大于服务端 pingTimeout(25s) + 余量
+# - 普通请求用 Connection "" 复用 upstream keepalive，WebSocket 用 map 出来的 upgrade
+
+map $http_upgrade $jwp_connection_upgrade {
+    default upgrade;
+    ''      close;
+}
 
 upstream jiaowoplay_backend {
     server 127.0.0.1:3000;
@@ -19,23 +26,24 @@ server {
     listen [::]:80;
     server_name __DOMAIN__;
 
-    # 建议用 certbot 申请 TLS 后改为 listen 443 ssl 并加 http2，
-    # 同时把 80 端口 301 跳转到 https。
+    # 建议用 certbot 申请 TLS 后改为 listen 443 ssl + http2，并把 80 端口 301 跳转到 https。
 
     client_max_body_size 64k;
+
+    access_log /var/log/nginx/jiaowoplay.access.log;
+    error_log  /var/log/nginx/jiaowoplay.error.log warn;
 
     gzip on;
     gzip_comp_level 5;
     gzip_min_length 1024;
     gzip_types text/css application/javascript application/json image/svg+xml;
 
-    location / {
+    location /socket.io/ {
         proxy_pass http://jiaowoplay_backend;
         proxy_http_version 1.1;
 
-        # WebSocket upgrade（Socket.IO 必需）
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $jwp_connection_upgrade;
 
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -43,17 +51,30 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
 
         proxy_connect_timeout 5s;
-        proxy_read_timeout 65s;
-        proxy_send_timeout 65s;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
 
         proxy_buffering off;
+        proxy_cache off;
     }
 
-    # 静态资源由 Node 托管 web/dist 时走同一路由；
-    # 若改为 Nginx 直接托管静态文件，可加：
-    # location /assets/ {
-    #     alias /opt/jiaowoplay/web/dist/assets/;
-    #     expires 7d;
-    #     add_header Cache-Control "public, immutable";
-    # }
+    location / {
+        proxy_pass http://jiaowoplay_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 30s;
+
+        # 前端产物单文件可达数百 KB，放宽缓冲区以免 Nginx
+        # 把上游响应落到临时文件并在 error.log 里刷 warn 噪音。
+        proxy_buffers 8 32k;
+        proxy_busy_buffers_size 64k;
+        proxy_max_temp_file_size 0;
+    }
 }

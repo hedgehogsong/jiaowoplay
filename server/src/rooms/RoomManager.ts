@@ -35,7 +35,9 @@ function createPlayer(roomId: string, nickname: string, isHost: boolean): Player
     socketId: null,
     joinedAt: now,
     lastSeenAt: now,
-    offlineSince: null,
+    // 玩家先经 REST 建档、再由 socket 挂载身份。若始终没挂载成功，
+    // 也要能从加入时刻起被巡检回收，所以这里不能留 null。
+    offlineSince: now,
   };
 }
 
