@@ -4,6 +4,7 @@ import cors from 'cors';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import { createAdminRouter } from './admin/routes.js';
 import type { AppConfig } from './config.js';
 import { logger } from './logger.js';
 import { createHealthRouter } from './routes/health.js';
@@ -83,6 +84,7 @@ export function createApp({ config, manager, history }: AppDeps): express.Expres
   });
 
   app.use('/api', apiLimiter, joinLimiter);
+  app.use('/api/admin', createAdminRouter({ config, history }));
   app.use('/api', createRoomsRouter(manager, history));
   app.use('/health', createHealthRouter(manager, history !== null));
 

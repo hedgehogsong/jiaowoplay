@@ -73,7 +73,17 @@ echo "== [4/7] 校验 better-sqlite3 原生绑定 =="
 "$NODE_BIN" -e "const D=require('better-sqlite3');const d=new D(':memory:');d.exec('create table t(a int)');console.log('sqlite binding OK')"
 "$NODE_BIN" -e "console.log('express/socket.io OK', require('express/package.json').version, require('socket.io/package.json').version)"
 
-echo "== [5/7] 生成 .env（密钥只在本机生成，不打印） =="
+echo "== [5/7] 生成/补全 .env（密钥只在本机生成，不打印） =="
+
+ensure_env_key() {
+  local key="$1" value="$2"
+  if ! grep -qE "^${key}=" .env; then
+    umask 077
+    printf '%s=%s\n' "$key" "$value" >> .env
+    echo "已追加 $key"
+  fi
+}
+
 if [ ! -f .env ]; then
   SECRET="$(openssl rand -hex 32)"
   umask 077
@@ -91,9 +101,23 @@ if [ ! -f .env ]; then
   chmod 600 .env
   echo ".env 已生成（权限 600）"
 else
-  echo ".env 已存在，保持不变"
+  echo ".env 已存在，仅补缺失项"
+fi
+
+# 后台配置：签名密钥随机生成；账号与密码只写占位符，真实值必须由管理员在服务器上自行填写，
+# 绝不由部署脚本或命令行代填，避免明文密码进入 shell history、日志与仓库。
+ensure_env_key ADMIN_USER "your-admin-name"
+ensure_env_key ADMIN_PASS "change-me-on-server"
+ensure_env_key ADMIN_JWT_SECRET "$(openssl rand -hex 32)"
+ensure_env_key ADMIN_TOKEN_TTL_SECONDS "604800"
+
+if grep -qE '^ADMIN_PASS=change-me-on-server$' .env; then
+  echo "提示：后台尚未配置真实密码（ADMIN_PASS 仍是占位符），/api/admin 会返回 503。"
+  echo "      请在服务器上执行：nano $APP_DIR/.env 修改 ADMIN_USER 与 ADMIN_PASS，"
+  echo "      保存后 systemctl restart jiaowoplay"
 fi
 chown "$APP_USER:$APP_USER" .env
+chmod 600 .env
 
 echo "== [6/7] 安装 systemd 服务 =="
 sed -e "s|__NODE_BIN__|$NODE_BIN|g" -e "s|__APP_DIR__|$APP_DIR|g" \

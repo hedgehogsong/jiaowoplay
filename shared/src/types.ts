@@ -156,3 +156,61 @@ export interface HistoricalSession {
   startedAt: number;
   endedAt: number | null;
 }
+
+/* ------------------------------------------------------------------ 后台管理 */
+
+export interface AdminSessionSummary {
+  id: string;
+  roomCode: string;
+  gameType: GameType;
+  /** active 表示对局仍在进行（服务重启后会变为 finished 但缺 ended_at） */
+  status: string;
+  outcome: GameOutcome | null;
+  currentRound: number;
+  maxRounds: number;
+  /** 已写入的轮次总数，包含尚未揭晓的那一轮 */
+  roundCount: number;
+  revealedRoundCount: number;
+  playerCount: number;
+  players: { playerId: string; nickname: string }[];
+  winnerNicknames: string[];
+  startedAt: number;
+  endedAt: number | null;
+  durationMs: number | null;
+}
+
+export interface AdminSessionListPage {
+  total: number;
+  page: number;
+  limit: number;
+  items: AdminSessionSummary[];
+}
+
+export interface AdminSubmission {
+  playerId: string;
+  nickname: string;
+  /** 后台可见全部词，包括尚未揭晓的 */
+  word: string | null;
+  isTimeout: boolean;
+  submittedAt: number | null;
+}
+
+export interface AdminRound {
+  roundNumber: number;
+  /** null 表示这一轮从未揭晓（例如房主中途强制结束） */
+  revealedAt: number | null;
+  allSame: boolean;
+  partialMeetings: PartialMeeting[];
+  previousWords: string[];
+  startedAt: number;
+  submissions: AdminSubmission[];
+}
+
+export interface AdminSessionDetail extends AdminSessionSummary {
+  rounds: AdminRound[];
+}
+
+export interface AdminLoginResult {
+  token: string;
+  expiresInSeconds: number;
+}

@@ -101,3 +101,25 @@ export function loadLastRoomCode(): string | null {
   if (!code) return null;
   return loadRoomCredentials(code) ? code : null;
 }
+
+/* ------------------------------------------------------------------ 后台 Token */
+
+const ADMIN_TOKEN_KEY = 'jiaowoplay:adminToken';
+
+/**
+ * 后台凭证存在 localStorage：XSS 可读，因此后台接口只暴露只读的历史数据，
+ * 且服务端仍会独立校验 JWT 签名与有效期。
+ */
+export function loadAdminToken(): string {
+  return read(session(), ADMIN_TOKEN_KEY) ?? read(local(), ADMIN_TOKEN_KEY) ?? '';
+}
+
+export function saveAdminToken(token: string): void {
+  write(local(), ADMIN_TOKEN_KEY, token);
+  write(session(), ADMIN_TOKEN_KEY, token);
+}
+
+export function clearAdminToken(): void {
+  remove(local(), ADMIN_TOKEN_KEY);
+  remove(session(), ADMIN_TOKEN_KEY);
+}

@@ -1,4 +1,7 @@
 import type {
+  AdminSessionDetail,
+  AdminSessionListPage,
+  AdminSessionSummary,
   GameOutcome,
   GameType,
   HistoricalRound,
@@ -70,12 +73,61 @@ interface SubmissionRow {
   is_timeout: number;
 }
 
+interface AdminSessionRow {
+  id: string;
+  room_code: string;
+  game_type: string;
+  status: string;
+  outcome: string | null;
+  current_round: number;
+  max_rounds: number;
+  winner_player_ids: string;
+  players: string;
+  started_at: number;
+  ended_at: number | null;
+  round_count: number;
+  revealed_count: number;
+}
+
+interface AdminSubmissionRow {
+  player_id: string;
+  nickname: string;
+  word: string | null;
+  is_timeout: number;
+  submitted_at: number | null;
+}
+
 function parseJson<T>(raw: string, fallback: T): T {
   try {
     return JSON.parse(raw) as T;
   } catch {
     return fallback;
   }
+}
+
+function toAdminSummary(row: AdminSessionRow): AdminSessionSummary {
+  const players = parseJson<{ playerId: string; nickname: string }[]>(row.players, []);
+  const winnerPlayerIds = parseJson<string[]>(row.winner_player_ids, []);
+  const nicknameOf = new Map(players.map((p) => [p.playerId, p.nickname]));
+  return {
+    id: row.id,
+    roomCode: row.room_code,
+    gameType: row.game_type as GameType,
+    status: row.status,
+    outcome: (row.outcome as GameOutcome | null) ?? null,
+    currentRound: row.current_round,
+    maxRounds: row.max_rounds,
+    roundCount: row.round_count,
+    revealedRoundCount: row.revealed_count,
+    playerCount: players.length,
+    players,
+    winnerNicknames: winnerPlayerIds
+      .map((id) => nicknameOf.get(id))
+      .filter((name): name is string => typeof name === 'string'),
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    durationMs: row.ended_at === null ? null : row.ended_at - row.started_at,
+  };
 }
 
 /**
@@ -311,5 +363,87 @@ export class HistoryRepository {
     return rows
       .map((row) => this.getSession(row.id))
       .filter((session): session is HistoricalSession => session !== null);
+  }
+
+  /* ---------------------------------------------------------------- 后台专用读取
+   * 与 getSession 的区别：后台需要看到全部数据（含尚未揭晓轮次的提交词），
+   * 因此单独一套读取路径。前台的 getSession 保持按 revealed_at 过滤，
+   * 两条路径互不影响，避免为了后台把前台的安全修复削弱掉。
+   */
+
+  listAdminSessions(page = 1, limit = 20): AdminSessionListPage {
+    const safePage = Math.max(1, Math.trunc(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Math.trunc(limit) || 20), 100);
+    const offset = (safePage - 1) * safeLimit;
+
+    const { total } = this.db.prepare(`SELECT COUNT(*) AS total FROM game_sessions`).get() as {
+      total: number;
+    };
+
+    const rows = this.db
+      .prepare(
+        `SELECT s.id, s.room_code, s.game_type, s.status, s.outcome, s.current_round,
+                s.max_rounds, s.win_mode, s.winner_player_ids, s.players,
+                s.started_at, s.ended_at,
+                (SELECT COUNT(*) FROM rounds r WHERE r.game_session_id = s.id) AS round_count,
+                (SELECT COUNT(*) FROM rounds r
+                  WHERE r.game_session_id = s.id AND r.revealed_at IS NOT NULL) AS revealed_count
+           FROM game_sessions s
+          ORDER BY s.started_at DESC
+          LIMIT ? OFFSET ?`,
+      )
+      .all(safeLimit, offset) as AdminSessionRow[];
+
+    return {
+      total,
+      page: safePage,
+      limit: safeLimit,
+      items: rows.map(toAdminSummary),
+    };
+  }
+
+  getAdminSession(sessionId: string): AdminSessionDetail | null {
+    const row = this.db
+      .prepare(
+        `SELECT s.id, s.room_code, s.game_type, s.status, s.outcome, s.current_round,
+                s.max_rounds, s.win_mode, s.winner_player_ids, s.players,
+                s.started_at, s.ended_at,
+                (SELECT COUNT(*) FROM rounds r WHERE r.game_session_id = s.id) AS round_count,
+                (SELECT COUNT(*) FROM rounds r
+                  WHERE r.game_session_id = s.id AND r.revealed_at IS NOT NULL) AS revealed_count
+           FROM game_sessions s WHERE s.id = ?`,
+      )
+      .get(sessionId) as AdminSessionRow | undefined;
+    if (!row) return null;
+
+    const rounds = this.db
+      .prepare(`SELECT * FROM rounds WHERE game_session_id = ? ORDER BY round_number ASC`)
+      .all(sessionId) as RoundRow[];
+    const submissionStmt = this.db.prepare(
+      `SELECT player_id, nickname, word, is_timeout, submitted_at
+         FROM submissions WHERE round_id = ? ORDER BY rowid ASC`,
+    );
+
+    return {
+      ...toAdminSummary(row),
+      rounds: rounds.map((round) => {
+        const submissions = submissionStmt.all(round.id) as AdminSubmissionRow[];
+        return {
+          roundNumber: round.round_number,
+          revealedAt: round.revealed_at,
+          allSame: round.all_same === 1,
+          partialMeetings: parseJson<PartialMeeting[]>(round.partial_meetings, []),
+          previousWords: parseJson<string[]>(round.previous_words, []),
+          startedAt: round.started_at,
+          submissions: submissions.map((item) => ({
+            playerId: item.player_id,
+            nickname: item.nickname,
+            word: item.word,
+            isTimeout: item.is_timeout === 1,
+            submittedAt: item.submitted_at,
+          })),
+        };
+      }),
+    };
   }
 }

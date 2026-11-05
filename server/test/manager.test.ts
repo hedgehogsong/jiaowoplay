@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAX_PLAYERS, PLAYER_OFFLINE_GRACE_MS } from '@jiaowoplay/shared';
 import { AppError } from '../src/domain/errors.js';
 import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from '@jiaowoplay/shared';
@@ -125,14 +125,21 @@ describe('RoomManager', () => {
   it('只走 REST 建档、从未挂载 socket 的房间也会被回收', () => {
     // 回归：这类玩家一直 isOnline=false，早先 offlineSince 为 null 导致永远回收不掉，
     // 配合建房限流可以稳定堆积僵尸房间。
-    const { room } = manager.createRoom({ nickname: '僵尸房主' });
-    const code = room.code;
-    manager.joinRoom(code, '僵尸访客');
-    const created = Date.now();
+    // 冻结时钟：createPlayer 内部与断言里都取 Date.now()，真实时钟走格会让基准
+    // 偏移几毫秒，在 -1/+1 的边界上偶发误判。
+    vi.useFakeTimers();
+    try {
+      const { room } = manager.createRoom({ nickname: '僵尸房主' });
+      const code = room.code;
+      manager.joinRoom(code, '僵尸访客');
+      const created = Date.now();
 
-    expect(manager.sweepOnce(created + PLAYER_OFFLINE_GRACE_MS - 1)).toEqual([]);
-    expect(manager.sweepOnce(created + PLAYER_OFFLINE_GRACE_MS + 1)).toContain(code);
-    expect(manager.getRoom(code)).toBeUndefined();
+      expect(manager.sweepOnce(created + PLAYER_OFFLINE_GRACE_MS - 1)).toEqual([]);
+      expect(manager.sweepOnce(created + PLAYER_OFFLINE_GRACE_MS + 1)).toContain(code);
+      expect(manager.getRoom(code)).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('stats 汇总房间与人数', () => {

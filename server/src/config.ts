@@ -43,6 +43,23 @@ function listFromEnv(name: string, fallback: string[]): string[] {
     .filter((item) => item.length > 0);
 }
 
+/**
+ * .env.example 与部署脚本里写的是占位符；如果管理员没改成真实值，
+ * 就当作"后台未配置"直接禁用，而不是拿占位符当密码去比对。
+ */
+const ADMIN_PLACEHOLDERS = new Set([
+  '',
+  'your-admin-name',
+  'change-me-on-server',
+  'change-me',
+  'change-me-to-a-random-secret',
+]);
+
+function adminValue(raw: string | undefined): string {
+  const value = (raw ?? '').trim();
+  return ADMIN_PLACEHOLDERS.has(value.toLowerCase()) ? '' : value;
+}
+
 export interface AppConfig {
   port: number;
   host: string;
@@ -54,6 +71,10 @@ export interface AppConfig {
   staticDir: string | null;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   serverRoot: string;
+  adminUser: string;
+  adminPass: string;
+  adminJwtSecret: string;
+  adminTokenTtlSeconds: number;
 }
 
 export function loadConfig(): AppConfig {
@@ -95,7 +116,16 @@ export function loadConfig(): AppConfig {
     staticDir,
     logLevel,
     serverRoot: SERVER_ROOT,
+    adminUser: adminValue(process.env.ADMIN_USER),
+    adminPass: adminValue(process.env.ADMIN_PASS),
+    adminJwtSecret: adminValue(process.env.ADMIN_JWT_SECRET),
+    adminTokenTtlSeconds: intFromEnv('ADMIN_TOKEN_TTL_SECONDS', 7 * 24 * 3600),
   };
 }
 
 export const config = loadConfig();
+
+/** 三项都配齐才启用后台，缺任意一项则 /api/admin 一律 503 */
+export function isAdminConfigured(source: AppConfig = config): boolean {
+  return Boolean(source.adminUser && source.adminPass && source.adminJwtSecret);
+}
