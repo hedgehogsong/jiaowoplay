@@ -111,25 +111,8 @@ npm test
 | GET | `/api/rooms/:code/history` | 该房间历史对局 |
 | GET | `/api/sessions/:id` | 单局完整历史（每轮每人提交词，**不含尚未揭晓的轮次**） |
 | GET | `/api/games` | 已注册游戏列表 |
-| POST | `/api/admin/login` | 后台登录，成功返回 JWT（有效期默认 7 天） |
-| GET | `/api/admin/sessions` | 后台对局列表，`?page=&limit=`，需 `Authorization: Bearer <token>` |
-| GET | `/api/admin/sessions/:id` | 后台单局全量详情，**含尚未揭晓轮次的提交词**，需 Token |
 
-创建/加入接口有每 IP 每分钟 20 次的限流，防止房间号爆破；
-后台登录另有每 IP 10 分钟最多 5 次失败的独立限流，超出返回 429。
-
-### 开发者后台
-
-`/api/admin/*` 是**独立的一套只读路径**：它直接查库返回全部数据，包括房主在收集阶段
-强制结束、从未向前台揭晓过的那些轮次的提交词。前台的 `getSession()` 仍按
-`revealed_at` 过滤，两条读取路径互不影响——这也是为什么必须给后台单独写接口，
-而不是把前台接口削弱成"什么都能看到"。
-
-前端入口是页脚那个灰色小字版本号：连续快速点击 5 次（相邻两次间隔不超过 1 秒）才会弹出登录框，
-单击或慢速点击没有任何反应。Token 存在浏览器本地，`/admin` 系列路由在没有有效 Token 时
-自动退回首页；接口返回 401 也会清掉本地 Token 再退回。
-
-后台标识仅用于展示，不授予任何游戏内权限。
+创建/加入接口有每 IP 每分钟 20 次的限流，防止房间号爆破。
 
 ### Socket.IO
 
@@ -171,8 +154,6 @@ server → client：`roomState` `reconnected` `playerJoined` `playerLeft` `playe
 | `/` | 平台首页 | 平台介绍 + 游戏卡片列表 |
 | `/play/:slug` | 游戏大厅 | 设昵称、创建/加入房间、玩法介绍 |
 | `/room/:code` | 房间页 | 成员、房主控制、对局面板 |
-| `/admin` | 开发者后台首页 | 需登录；由页脚版本号连点 5 次进入 |
-| `/admin/game/:slug` | 数据看板 | 需登录；历史对局列表 + 轮次详情展开 |
 | 其它 | 404 | |
 
 ---
@@ -272,9 +253,6 @@ curl -s http://127.0.0.1:3000/health   # 房间/玩家计数
 | 服务器 `npm` 执行报 `env: 'node': No such file` | 用 tarball 安装时 npm 的 shebang 需要 node 在 PATH 上；`export PATH=/opt/node-v24.22.2/bin:$PATH` |
 | Nginx error.log 反复出现 `upstream response is buffered to a temporary file` | 放宽 `proxy_buffers` 并设 `proxy_max_temp_file_size 0`（示例配置已含） |
 | `nginx -t` 报 duplicate default server | 未删除 Debian 自带的 `/etc/nginx/sites-enabled/default` |
-| 后台接口返回 503 | `ADMIN_USER` / `ADMIN_PASS` / `ADMIN_JWT_SECRET` 有缺失或仍是占位符；改完 `.env` 后 `systemctl restart jiaowoplay` |
-| 后台登录返回 429 | 同一 IP 在 10 分钟内失败超过 5 次，等窗口过去再试 |
-| 后台点进去被弹回首页 | 本地 Token 缺失或已过期（默认 7 天），重新连点版本号登录 |
 
 ---
 
