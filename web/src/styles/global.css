@@ -1388,6 +1388,10 @@ button.admin-row:hover {
   color: var(--muted);
 }
 
+.admin-outcome--ABANDONED {
+  color: #f2994a;
+}
+
 .admin-outcome--running {
   color: var(--accent-soft);
 }

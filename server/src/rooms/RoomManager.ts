@@ -1,6 +1,6 @@
 import { MAX_PLAYERS } from '@jiaowoplay/shared';
 import type { GameType, RoomSettings, ServerToClientEvents } from '@jiaowoplay/shared';
-import type { HistoryRepository } from '../db/repository.js';
+import type { AbandonReason, HistoryRepository } from '../db/repository.js';
 import { AppError, ErrorCode } from '../domain/errors.js';
 import { generateReconnectToken, generateRoomCode, newId } from '../domain/ids.js';
 import type { Player, RoomData } from '../domain/types.js';
@@ -156,6 +156,18 @@ export class RoomManager {
     room.dispose();
     this.rooms.delete(code);
     logger.info('房间已清理', { roomCode: code });
+  }
+
+  /** 进程退出前收尾所有房间：清掉计时器，并把没打完的对局写成流局而不是永久 active */
+  disposeAll(reason: AbandonReason = 'shutdown'): void {
+    for (const [code, room] of this.rooms) {
+      try {
+        room.dispose(reason);
+      } catch (error) {
+        logger.error('关闭房间失败', { roomCode: code, error: (error as Error).message });
+      }
+    }
+    this.rooms.clear();
   }
 
   stats(): { rooms: number; players: number; playing: number } {

@@ -6,13 +6,16 @@ export type RoomStatus = 'WAITING' | 'PLAYING' | 'ENDED';
 
 export type GamePhase = 'ROUND_COLLECT' | 'CHECK' | 'ROUND_REVEAL' | 'FINISHED';
 
-export type RoundStatus = 'COLLECTING' | 'REVEALED';
+/** ABANDONED = 房间销毁或服务重启时仍未结束，判为中途流局 */
+export type RoundStatus = 'COLLECTING' | 'REVEALED' | 'ABANDONED';
 
 export type GameOutcome =
   | 'ALL_MET'
   | 'ROUND_LIMIT'
   | 'INSUFFICIENT_PLAYERS'
-  | 'HOST_ENDED';
+  | 'HOST_ENDED'
+  /** 全员流失或进程退出导致对局未能正常结束 */
+  | 'ABANDONED';
 
 /** ALL_SAME = 全员同词胜利；ANY_PAIR = 任意两人同词即胜利（预留，MVP 未启用） */
 export type WinMode = 'ALL_SAME' | 'ANY_PAIR';
@@ -163,7 +166,7 @@ export interface AdminSessionSummary {
   id: string;
   roomCode: string;
   gameType: GameType;
-  /** active 表示对局仍在进行（服务重启后会变为 finished 但缺 ended_at） */
+  /** active 只在该局此刻真的在打时出现；进程退出留下的残局会被对账成 finished + ABANDONED */
   status: string;
   outcome: GameOutcome | null;
   currentRound: number;
@@ -197,6 +200,8 @@ export interface AdminSubmission {
 
 export interface AdminRound {
   roundNumber: number;
+  /** ABANDONED 表示这一轮被流局作废，词仍在库里且只对后台可见 */
+  status: RoundStatus;
   /** null 表示这一轮从未揭晓（例如房主中途强制结束） */
   revealedAt: number | null;
   allSame: boolean;

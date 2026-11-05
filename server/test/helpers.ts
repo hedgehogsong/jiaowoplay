@@ -1,8 +1,33 @@
 import type { RoomSettings, ServerToClientEvents } from '@jiaowoplay/shared';
-import { GameRoom, type RoomNotifier, type ServerEvent } from '../src/rooms/Room.js';
+import { GameRoom, type RoomDeps, type RoomNotifier, type ServerEvent } from '../src/rooms/Room.js';
+import type { AbandonReason, HistoryRepository } from '../src/db/repository.js';
 import type { Player, RoomData } from '../src/domain/types.js';
 import { sameWordGame } from '../src/games/sameword/index.js';
 import { newId } from '../src/domain/ids.js';
+
+export interface AbandonCall {
+  id: string;
+  currentRound: number;
+  reason: AbandonReason;
+}
+
+/** 只关心流局收尾的测试用历史桩：其余写库方法留空实现 */
+export function recordingHistory(calls: AbandonCall[]): HistoryRepository {
+  const stub = {
+    createSession: () => undefined,
+    setSessionRound: () => undefined,
+    createRound: () => undefined,
+    finalizeRound: () => undefined,
+    createSubmission: () => undefined,
+    recordEvent: () => undefined,
+    finishSession: () => undefined,
+    abandonSession: (input: { id: string; currentRound: number; reason: AbandonReason }) => {
+      calls.push({ id: input.id, currentRound: input.currentRound, reason: input.reason });
+      return true;
+    },
+  };
+  return stub as unknown as HistoryRepository;
+}
 
 export interface RecordedEvent {
   kind: 'broadcast' | 'state' | 'send';
@@ -53,6 +78,7 @@ export function makePlayer(
 export interface TestRoomOptions {
   nicknames?: string[];
   settings?: Partial<RoomSettings>;
+  history?: RoomDeps['history'];
 }
 
 export interface TestRoom {
@@ -87,7 +113,7 @@ export function createTestRoom(options: TestRoomOptions = {}): TestRoom {
   const events: RecordedEvent[] = [];
   const room = new GameRoom(data, {
     game: sameWordGame,
-    history: null,
+    history: options.history ?? null,
     notifier: createFakeNotifier(events),
   });
 

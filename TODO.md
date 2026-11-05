@@ -2,6 +2,28 @@
 
 ## 已完成
 
+### [已修复] 未结束的对局在库里永久停留为 active（僵尸局）
+
+后台看板里会出现「进行中（第 N 轮）」却再也没有动静的对局。三条成因：
+
+1. `Room.dispose()` 只清计时器，不写库；房间被回收（全员离线 90s、空房 5min、
+   房龄 6h 兜底）时，那一局在库里永远是 `status='active'`。
+2. **主因**：`bootstrap.close()` 与 SIGTERM/SIGINT 处理不碰房间。每次发版重启、
+   崩溃或 OOM（服务器只有 1.9G 内存）都会把当时在打的对局留成僵尸局。
+3. `finishSession` 写库失败只 `logger.warn`，内存已 FINISHED 而库里仍是 active。
+
+修复：新增 `ABANDONED`（中途流局/全员流失）终态；`dispose()` 与进程关闭都会把未结束的
+对局写成 `finished + ABANDONED + ended_at`，进行中的轮次标记 `ABANDONED`（绝不写
+`revealed_at`，所以前台依然看不到那些词，词本身保留在 `submissions` 表）；
+服务启动时 `reconcileAbandonedSessions()` 把库里遗留的 active 行统一补成终态，
+`ended_at` 取最后活动时间而不是启动时刻。
+
+顺带修掉房主转移刷屏：全员离线时 `transferHost()` 每 5 秒都会「转移」给同一个最早
+加入者，反复广播 `hostTransferred` 并打日志；现在选中同一人时只静默校正标志位。
+
+回归测试：`server/test/abandoned.test.ts`（含真实启动路径与前后隔离）、
+`server/test/room.test.ts` 的「房间销毁的流局收尾」「房主转移不刷屏」。
+
 ### [已修复] 历史接口泄露「尚未揭晓」的提交词
 
 对局进行中，`GET /api/rooms/:code/history` 与 `GET /api/sessions/:id`
@@ -60,3 +82,7 @@ app.get(/^(?!\/api|\/health|\/socket\.io).*/, ...)
 房间与对局状态保存在单个 Node 进程的内存里，因此 `instances` 必须为 1。
 需要多实例时要先引入 Socket.IO Redis adapter 与共享状态层，否则同一房间会被
 不同进程各自持有、状态不一致。
+
+**同一前提还撑着启动对账**：`reconcileAbandonedSessions()` 认为库里所有 `active`
+的对局都是本进程遗留的残局并一律判为流局。多实例部署前必须改成只处理本实例登记的
+会话，否则新起来的进程会误杀其它进程正在打的对局。

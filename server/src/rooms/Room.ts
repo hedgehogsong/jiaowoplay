@@ -6,10 +6,10 @@ import {
   isDeveloperNickname,
 } from '@jiaowoplay/shared';
 import type { GameOutcome, ServerToClientEvents } from '@jiaowoplay/shared';
-import type { HistoryRepository } from '../db/repository.js';
+import type { HistoryRepository, AbandonReason } from '../db/repository.js';
 import { AppError, ErrorCode } from '../domain/errors.js';
 import { newId, safeTokenEqual } from '../domain/ids.js';
-import type { Player, RoomData, Round, Submission } from '../domain/types.js';
+import type { GameSession, Player, RoomData, Round, Submission } from '../domain/types.js';
 import type { GameDefinition, RoundSubmissionInput } from '../games/Game.js';
 import { logger } from '../logger.js';
 import { toRoundView } from './roundView.js';
@@ -247,6 +247,9 @@ export class GameRoom {
       return null;
     }
     for (const player of ordered) player.isHost = player.id === next.id;
+    // 全员离线时候选恒为同一人，巡检每 5 秒都会「转移」给现任房主。
+    // 选中同一人就只校正标志位，不广播、不打日志，否则日志和前端都会被刷屏。
+    if (next.id === this.data.hostPlayerId) return next;
     this.data.hostPlayerId = next.id;
     this.touch();
     this.deps.notifier.broadcast('hostTransferred', {
@@ -702,10 +705,44 @@ export class GameRoom {
     return false;
   }
 
-  dispose(): void {
+  dispose(reason: AbandonReason = 'room_reclaimed'): void {
     if (this.disposed) return;
     this.disposed = true;
     this.clearSubmitTimer();
     this.clearRevealTimer();
+
+    const session = this.data.session;
+    if (session && session.phase !== 'FINISHED') this.abandonSession(session, reason);
+  }
+
+  /**
+   * 房间销毁时给未结束的对局一个终态。
+   * 不广播：回收路径下无人在线，发版路径下 socket 紧接着就被关掉。
+   */
+  private abandonSession(session: GameSession, reason: AbandonReason): void {
+    const now = this.now();
+    session.outcome = 'ABANDONED';
+    session.winnerPlayerIds = [];
+    session.endedAt = now;
+    session.phase = 'FINISHED';
+    for (const round of session.rounds) {
+      if (round.status === 'COLLECTING') round.status = 'ABANDONED';
+    }
+    this.data.status = 'ENDED';
+    for (const player of this.data.players.values()) player.isActive = false;
+
+    const persisted = this.deps.history?.abandonSession({
+      id: session.id,
+      currentRound: session.currentRound,
+      endedAt: now,
+      reason,
+    }) ?? false;
+
+    logger.warn('对局未结束即被流局处理', {
+      roomCode: this.data.code,
+      sessionId: session.id,
+      reason,
+      persisted,
+    });
   }
 }

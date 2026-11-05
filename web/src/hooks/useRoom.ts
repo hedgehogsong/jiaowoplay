@@ -73,6 +73,7 @@ export const OUTCOME_TEXT: Record<string, string> = {
   ROUND_LIMIT: '轮次用尽，本局平局',
   INSUFFICIENT_PLAYERS: '可判定人数不足，本局平局',
   HOST_ENDED: '房主结束了本局',
+  ABANDONED: '中途流局/全员流失',
 };
 
 export function useRoom(code: string): RoomHook {

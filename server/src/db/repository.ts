@@ -1,4 +1,5 @@
 import type {
+  AdminRound,
   AdminSessionDetail,
   AdminSessionListPage,
   AdminSessionSummary,
@@ -59,6 +60,7 @@ interface RoundRow {
   id: string;
   game_session_id: string;
   round_number: number;
+  status: string;
   all_same: number;
   partial_meetings: string;
   previous_words: string;
@@ -72,6 +74,16 @@ interface SubmissionRow {
   word: string | null;
   is_timeout: number;
 }
+
+interface AbandonCandidateRow {
+  id: string;
+  current_round: number;
+  started_at: number;
+  last_activity: number | null;
+}
+
+/** 流局原因，写进 game_events 便于事后区分是回收、发版还是启动对账 */
+export type AbandonReason = 'room_reclaimed' | 'shutdown' | 'startup_reconcile';
 
 interface AdminSessionRow {
   id: string;
@@ -206,6 +218,121 @@ export class HistoryRepository {
           endedAt: input.endedAt,
         });
     });
+  }
+
+  /**
+   * 流局收尾：把尚未结束的对局写成 finished + ABANDONED，并作废从未揭晓的轮次。
+   * 提交的词原样保留在 submissions 表，但绝不写 revealed_at——前台历史接口按
+   * revealed_at 过滤提交词，写了就等于把别人没公开的词泄露出去。
+   * WHERE status='active' 保证已经记下真实胜负的对局永远不会被覆盖成流局。
+   */
+  abandonSession(input: {
+    id: string;
+    currentRound: number;
+    endedAt: number;
+    reason: AbandonReason;
+  }): boolean {
+    let abandoned = false;
+    this.safe('abandonSession', () => {
+      this.db.transaction(() => {
+        abandoned = this.abandonOne(input);
+      })();
+    });
+    return abandoned;
+  }
+
+  /**
+   * 启动对账。进程被 SIGTERM/崩溃/OOM 打断时，内存态房间随之消失，库里
+   * status='active' 的行再也等不到结局；每次发版重启都会稳定产出一条这种残局。
+   * 此刻内存里没有任何房间，所以这些 active 行都属于遗留数据，统一补成流局终态。
+   * 前提是本进程独占该库（instances=1）；将来横向扩展时必须改成只处理本实例
+   * 登记的会话，否则会误杀其它进程正在进行的对局。
+   */
+  reconcileAbandonedSessions(now: number): number {
+    let rows: AbandonCandidateRow[];
+    try {
+      rows = this.db
+        .prepare(
+          `SELECT s.id, s.current_round, s.started_at,
+                  (SELECT MAX(t) FROM (
+                     SELECT MAX(r.started_at)     AS t FROM rounds r WHERE r.game_session_id = s.id
+                     UNION ALL
+                     SELECT MAX(r.revealed_at)    AS t FROM rounds r WHERE r.game_session_id = s.id
+                     UNION ALL
+                     SELECT MAX(sub.submitted_at) AS t FROM submissions sub WHERE sub.game_session_id = s.id
+                   )) AS last_activity
+             FROM game_sessions s
+            WHERE s.status = 'active'
+            ORDER BY s.started_at ASC`,
+        )
+        .all() as AbandonCandidateRow[];
+    } catch (error) {
+      logger.warn('历史对账查询失败', { error: (error as Error).message });
+      return 0;
+    }
+    if (rows.length === 0) return 0;
+
+    let count = 0;
+    this.safe('reconcileAbandonedSessions', () => {
+      this.db.transaction(() => {
+        for (const row of rows) {
+          // ended_at 取最后活动时间而不是对账时刻，否则后台「时长」会显示成几天的假数字
+          const lastActivity = row.last_activity ?? row.started_at;
+          const endedAt = Math.min(Math.max(row.started_at, lastActivity), now);
+          if (
+            this.abandonOne({
+              id: row.id,
+              currentRound: row.current_round,
+              endedAt,
+              reason: 'startup_reconcile',
+            })
+          ) {
+            count += 1;
+          }
+        }
+      })();
+    });
+    return count;
+  }
+
+  private abandonOne(input: {
+    id: string;
+    currentRound: number;
+    endedAt: number;
+    reason: AbandonReason;
+  }): boolean {
+    const changed = this.db
+      .prepare(
+        `UPDATE game_sessions
+            SET status = 'finished',
+                outcome = 'ABANDONED',
+                current_round = @currentRound,
+                winner_player_ids = '[]',
+                ended_at = @endedAt
+          WHERE id = @id AND status = 'active'`,
+      )
+      .run({ id: input.id, currentRound: input.currentRound, endedAt: input.endedAt });
+    if (changed.changes === 0) return false;
+
+    this.db
+      .prepare(
+        `UPDATE rounds SET status = 'ABANDONED'
+          WHERE game_session_id = @sessionId AND revealed_at IS NULL`,
+      )
+      .run({ sessionId: input.id });
+
+    this.db
+      .prepare(
+        `INSERT INTO game_events (game_session_id, round_number, type, payload, created_at)
+         VALUES (@sessionId, @roundNumber, 'session_abandoned', @payload, @createdAt)`,
+      )
+      .run({
+        sessionId: input.id,
+        roundNumber: input.currentRound,
+        payload: JSON.stringify({ reason: input.reason }),
+        createdAt: input.endedAt,
+      });
+    return true;
   }
 
   createRound(record: RoundRecord): void {
@@ -430,6 +557,7 @@ export class HistoryRepository {
         const submissions = submissionStmt.all(round.id) as AdminSubmissionRow[];
         return {
           roundNumber: round.round_number,
+          status: round.status as AdminRound['status'],
           revealedAt: round.revealed_at,
           allSame: round.all_same === 1,
           partialMeetings: parseJson<PartialMeeting[]>(round.partial_meetings, []),

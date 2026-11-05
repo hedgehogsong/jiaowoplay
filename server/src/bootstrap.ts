@@ -38,6 +38,13 @@ export function createServerBundle(configOverride: Partial<AppConfig> = {}): Ser
 
   let io: TypedServer | null = null;
 
+  // 上一次进程被 SIGTERM/崩溃/OOM 打断时没来得及收尾的对局，此刻在库里仍是 active。
+  // 内存里还没有任何房间，所以它们全是遗留数据，启动时统一补成流局终态。
+  if (history) {
+    const reconciled = history.reconcileAbandonedSessions(Date.now());
+    if (reconciled > 0) logger.info('启动对账：遗留对局已标记为流局', { count: reconciled });
+  }
+
   const manager = new RoomManager({
     history,
     createNotifier: (room) => {
@@ -82,6 +89,7 @@ export function createServerBundle(configOverride: Partial<AppConfig> = {}): Ser
     },
     async close(): Promise<void> {
       manager.stopSweeper();
+      manager.disposeAll('shutdown');
       await new Promise<void>((resolve) => io?.close(() => resolve()));
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));
       try {

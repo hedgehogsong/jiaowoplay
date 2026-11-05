@@ -8,7 +8,13 @@ import {
   HOST_OFFLINE_GRACE_MS,
   PLAYER_OFFLINE_GRACE_MS,
 } from '@jiaowoplay/shared';
-import { createTestRoom, makePlayer, type TestRoom } from './helpers.js';
+import {
+  createTestRoom,
+  makePlayer,
+  recordingHistory,
+  type AbandonCall,
+  type TestRoom,
+} from './helpers.js';
 
 const FAST_SETTINGS = {
   maxRounds: 3,
@@ -370,5 +376,94 @@ describe('揭晓展示时长', () => {
     expect(ctx.room.data.session?.currentRound).toBe(1);
     vi.advanceTimersByTime(2);
     expect(ctx.room.data.session?.currentRound).toBe(2);
+  });
+});
+
+describe('房间销毁的流局收尾', () => {
+  it('dispose 把未结束的对局标记为流局并写库', () => {
+    const calls: AbandonCall[] = [];
+    ctx = createTestRoom({ nicknames: ['房主大人', '路人甲'], history: recordingHistory(calls) });
+    ctx.room.startGame(ctx.host.id);
+    const session = ctx.room.data.session;
+    if (!session) throw new Error('缺少对局');
+
+    ctx.room.dispose();
+
+    expect(calls).toEqual([{ id: session.id, currentRound: 1, reason: 'room_reclaimed' }]);
+    expect(session.outcome).toBe('ABANDONED');
+    expect(session.phase).toBe('FINISHED');
+    expect(session.endedAt).not.toBeNull();
+    expect(session.winnerPlayerIds).toEqual([]);
+    expect(session.rounds[0]?.status).toBe('ABANDONED');
+    expect(ctx.room.data.status).toBe('ENDED');
+    expect(ctx.players.every((player) => !player.isActive)).toBe(true);
+  });
+
+  it('已经判定胜负的对局不会被 dispose 覆盖', () => {
+    const calls: AbandonCall[] = [];
+    ctx = createTestRoom({ nicknames: ['房主大人', '路人甲'], history: recordingHistory(calls) });
+    ctx.room.startGame(ctx.host.id);
+    ctx.room.forceEndGame(ctx.host.id);
+
+    ctx.room.dispose();
+
+    expect(calls).toEqual([]);
+    expect(ctx.room.data.session?.outcome).toBe('HOST_ENDED');
+  });
+
+  it('重复 dispose 只收尾一次', () => {
+    const calls: AbandonCall[] = [];
+    ctx = createTestRoom({ nicknames: ['房主大人', '路人甲'], history: recordingHistory(calls) });
+    ctx.room.startGame(ctx.host.id);
+
+    ctx.room.dispose();
+    ctx.room.dispose();
+
+    expect(calls).toHaveLength(1);
+  });
+
+  it('没有历史库时 dispose 只改内存不抛错', () => {
+    ctx = createTestRoom({ nicknames: ['房主大人', '路人甲'] });
+    ctx.room.startGame(ctx.host.id);
+
+    expect(() => ctx.room.dispose()).not.toThrow();
+    expect(ctx.room.data.session?.outcome).toBe('ABANDONED');
+  });
+});
+
+describe('房主转移不刷屏', () => {
+  it('全员离线时反复巡检不会重复转移给同一个人', () => {
+    ctx = createTestRoom({ nicknames: ['房主大人', '路人甲'] });
+    for (const player of ctx.players) ctx.room.setOnline(player.id, false, null);
+    const before = ctx.eventsOf('hostTransferred').length;
+
+    // 30 秒宽限过后，回收还要等满 90 秒；这段窗口内每 5 秒巡检一次
+    vi.advanceTimersByTime(HOST_OFFLINE_GRACE_MS);
+    const now = Date.now();
+    for (let i = 0; i < 6; i += 1) expect(ctx.room.sweep(now + i * 5_000)).toBe(false);
+
+    expect(ctx.eventsOf('hostTransferred')).toHaveLength(before);
+    expect(ctx.host.isHost).toBe(true);
+    expect(ctx.room.data.hostPlayerId).toBe(ctx.host.id);
+  });
+
+  it('房主离开房间后仍然正常转移并广播一次', () => {
+    ctx = createTestRoom({ nicknames: ['房主大人', '路人甲'] });
+    ctx.room.removePlayer(ctx.host.id, 'left');
+
+    expect(ctx.eventsOf('hostTransferred')).toHaveLength(1);
+    expect(ctx.byNickname('路人甲').isHost).toBe(true);
+  });
+
+  it('房主标志漂移时静默校正，不广播', () => {
+    ctx = createTestRoom({ nicknames: ['房主大人', '路人甲'] });
+    ctx.host.isHost = false;
+    for (const player of ctx.players) ctx.room.setOnline(player.id, false, null);
+
+    vi.advanceTimersByTime(HOST_OFFLINE_GRACE_MS);
+    ctx.room.sweep(Date.now());
+
+    expect(ctx.eventsOf('hostTransferred')).toHaveLength(0);
+    expect(ctx.host.isHost).toBe(true);
   });
 });

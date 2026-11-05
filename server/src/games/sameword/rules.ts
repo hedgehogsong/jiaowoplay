@@ -106,4 +106,5 @@ export const OUTCOME_LABELS: Record<string, string> = {
   ROUND_LIMIT: '轮次用尽，平局',
   INSUFFICIENT_PLAYERS: '可判定人数不足，平局',
   HOST_ENDED: '房主结束了本局',
+  ABANDONED: '中途流局/全员流失',
 };

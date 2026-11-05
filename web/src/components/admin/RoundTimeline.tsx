@@ -25,7 +25,9 @@ export default function RoundTimeline({ rounds }: { rounds: AdminRound[] }) {
           <div className="timeline__head">
             <strong>第 {round.roundNumber} 轮</strong>
             {round.revealedAt === null ? (
-              <span className="tag tag--warn">未揭晓</span>
+              <span className="tag tag--warn">
+                {round.status === 'ABANDONED' ? '已废弃' : '未揭晓'}
+              </span>
             ) : round.allSame ? (
               <span className="tag tag--ok">全员同词</span>
             ) : round.partialMeetings.length > 0 ? (
