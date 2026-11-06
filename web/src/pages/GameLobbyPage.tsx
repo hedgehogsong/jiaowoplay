@@ -7,6 +7,7 @@ import {
   ROOM_CODE_LENGTH,
 } from '@jiaowoplay/shared';
 import { findGameBySlug } from '../games/registry.js';
+import ThemeToggle from '../components/ThemeToggle.js';
 import { ApiError, api } from '../lib/api.js';
 import { loadLastRoomCode, loadNickname, saveNickname, saveRoomCredentials } from '../lib/storage.js';
 
@@ -102,6 +103,7 @@ export default function GameLobbyPage() {
         <span className="topbar__crumb">/</span>
         <span className="topbar__crumb topbar__crumb--current">{game.name}</span>
         <div className="topbar__right">
+          <ThemeToggle />
           <Link className="btn btn--ghost btn--sm" to="/">
             换个游戏
           </Link>

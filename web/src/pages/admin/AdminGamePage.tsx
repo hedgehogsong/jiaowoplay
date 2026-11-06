@@ -6,6 +6,7 @@ import { formatDateTime, formatDateTimeMinute, formatDuration } from '../../lib/
 import { findGameBySlug } from '../../games/registry.js';
 import { OUTCOME_TEXT } from '../../hooks/useRoom.js';
 import RoundTimeline from '../../components/admin/RoundTimeline.js';
+import ThemeToggle from '../../components/ThemeToggle.js';
 import { useAdminGuard } from '../../components/admin/RequireAdmin.js';
 
 const PAGE_SIZE = 20;
@@ -90,6 +91,7 @@ export default function AdminGamePage() {
           <h1 className="admin-title">{game.name} · 数据看板</h1>
         </div>
         <div className="admin-topbar__actions">
+          <ThemeToggle />
           <Link className="btn btn--ghost btn--sm" to="/admin">
             后台首页
           </Link>

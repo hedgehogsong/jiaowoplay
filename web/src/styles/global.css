@@ -1,26 +1,141 @@
+/*
+ * 全站颜色只在这里定义。浅色是默认主题，深色由 [data-theme="dark"] 覆盖，
+ * 组件里一律引用变量，不要再写死颜色。
+ * 带 *-rgb 的三元组用于 rgb(var(--x-rgb) / 30%) 这种半透明叠加。
+ */
 :root {
+  color-scheme: light;
+
+  /* 表面 */
+  --bg: #f4f5fb;
+  --bg-soft: #eceef8;
+  --panel: #ffffff;
+  --panel-soft: #f7f8fd;
+  --topbar-bg: rgb(255 255 255 / 88%);
+  --input-bg: #f2f3fa;
+  --chip-bg: rgb(24 26 60 / 6%);
+  --code-bg: rgb(24 26 60 / 7%);
+  --row-bg: rgb(24 26 60 / 4%);
+  --panel-alt-bg: #f6f7fc;
+  --subpanel-bg: rgb(24 26 60 / 3%);
+  --toast-bg: rgb(255 255 255 / 97%);
+  --scrim: rgb(24 26 60 / 38%);
+  --hairline: rgb(24 26 60 / 9%);
+  --border: #dcdff0;
+
+  /* 文字 */
+  --text: #191a2b;
+  --muted: #4e5273;
+  --muted-rgb: 78 82 115;
+
+  /* 品牌与语义色 */
+  --accent: #5a49e0;
+  --accent-rgb: 90 73 224;
+  --accent-soft: #4a3fc0;
+  --accent-soft-rgb: 74 63 192;
+  --accent-2: #4a5cff;
+  --teal: #0a7a6d;
+  --teal-rgb: 10 122 109;
+  --ok: #16a34a;
+  --ok-rgb: 22 163 74;
+  --warn: #c1770d;
+  --warn-rgb: 193 119 13;
+  --danger: #d93a55;
+  --danger-rgb: 217 58 85;
+  --gold: #b45309;
+  --gold-rgb: 180 83 9;
+
+  /* 彩色小标签上的文字：浅色下要比主色更暗才够对比度 */
+  --ok-text: #085c2b;
+  --warn-text: #7a4a00;
+  --danger-text: #b3283f;
+  --accent-text: #4a3fc0;
+  --gold-text: #6b4400;
+  --abandoned-text: #8f4008;
+
+  /* 渐变与渐变上的文字 */
+  --grad-0: #191a2b;
+  --ink-on-accent: #ffffff;
+  --ink-on-avatar: #ffffff;
+  --dev-fallback: #8a5a00;
+  --dev-grad: linear-gradient(96deg, #a16207 0%, #c2410c 52%, #a21caf 100%);
+
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow-rgb: 30 34 78;
+  --shadow: 0 12px 32px rgb(var(--shadow-rgb) / 12%);
+  --gap: 16px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
   --bg: #141326;
   --bg-soft: #191833;
   --panel: #201e3d;
   --panel-soft: #272449;
+  --topbar-bg: rgb(32 30 61 / 78%);
+  --input-bg: rgb(12 11 26 / 72%);
+  --chip-bg: rgb(12 11 26 / 58%);
+  --code-bg: rgb(12 11 26 / 69%);
+  --row-bg: rgb(12 11 26 / 44%);
+  --panel-alt-bg: rgb(32 30 61 / 55%);
+  --subpanel-bg: rgb(12 11 26 / 45%);
+  --toast-bg: rgb(24 22 48 / 96%);
+  --scrim: rgb(6 5 18 / 68%);
+  --hairline: rgb(52 48 92 / 60%);
   --border: #34305c;
+
   --text: #f3f1ff;
   --muted: #a8a3cc;
+  --muted-rgb: 168 163 204;
+
   --accent: #7c6cff;
+  --accent-rgb: 124 108 255;
   --accent-soft: #9d92ff;
+  --accent-soft-rgb: 157 146 255;
+  --accent-2: #5f7cff;
   --teal: #38d6c0;
+  --teal-rgb: 56 214 192;
   --ok: #4ade80;
+  --ok-rgb: 74 222 128;
   --warn: #ffb648;
+  --warn-rgb: 255 182 72;
   --danger: #ff6b81;
-  --radius: 14px;
-  --radius-sm: 9px;
+  --danger-rgb: 255 107 129;
+  --gold: #ffd76e;
+  --gold-rgb: 255 215 110;
+
+  --ok-text: #c8f7d8;
+  --warn-text: #ffe4bb;
+  --danger-text: #ffd7de;
+  --accent-text: #d6d0ff;
+  --gold-text: #ffe4bb;
+  --abandoned-text: #f2994a;
+
+  --grad-0: #ffffff;
+  --ink-on-accent: #12102a;
+  --ink-on-avatar: #16142b;
+  --dev-fallback: #ffd76e;
+  --dev-grad: linear-gradient(96deg, #ffe9a8 0%, #ffb347 52%, #ff9ad2 100%);
+
+  --shadow-rgb: 0 0 0;
   --shadow: 0 12px 32px rgb(0 0 0 / 32%);
-  --gap: 16px;
-  color-scheme: dark;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* 主题切换时只过渡颜色，避免生硬跳变；组件自己的 transition 优先级更高，不受影响 */
+*,
+*::before,
+*::after {
+  transition:
+    background-color 0.22s ease,
+    border-color 0.22s ease,
+    color 0.22s ease,
+    box-shadow 0.22s ease;
 }
 
 html,
@@ -32,8 +147,8 @@ body,
 body {
   margin: 0;
   background:
-    radial-gradient(1100px 620px at 12% -8%, rgb(124 108 255 / 26%), transparent 62%),
-    radial-gradient(900px 520px at 92% 4%, rgb(56 214 192 / 16%), transparent 58%),
+    radial-gradient(1100px 620px at 12% -8%, rgb(var(--accent-rgb) / 26%), transparent 62%),
+    radial-gradient(900px 520px at 92% 4%, rgb(var(--teal-rgb) / 16%), transparent 58%),
     var(--bg);
   color: var(--text);
   font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, -apple-system,
@@ -111,7 +226,7 @@ button {
   margin: 0;
   font-size: clamp(34px, 9vw, 52px);
   letter-spacing: 0.04em;
-  background: linear-gradient(100deg, #fff 12%, var(--accent-soft) 52%, var(--teal) 92%);
+  background: linear-gradient(100deg, var(--grad-0) 12%, var(--accent-soft) 52%, var(--teal) 92%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -143,7 +258,7 @@ button {
   gap: 10px;
   padding: 12px 14px;
   margin-bottom: var(--gap);
-  background: rgb(32 30 61 / 78%);
+  background: var(--topbar-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   backdrop-filter: blur(8px);
@@ -161,6 +276,44 @@ button {
   align-items: center;
   gap: 8px;
   margin-left: auto;
+}
+
+/* 主题切换按钮：每页右上角都是同一个控件 */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: var(--chip-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+  background: rgb(var(--accent-rgb) / 14%);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.hero {
+  position: relative;
+}
+
+.hero > .theme-toggle {
+  position: absolute;
+  top: 2px;
+  right: 0;
 }
 
 .home-note {
@@ -193,7 +346,7 @@ button {
 }
 
 .site-footer__dot {
-  color: var(--border);
+  color: var(--muted);
 }
 
 /* ------------------------------------------------------------------ 面板 */
@@ -239,7 +392,8 @@ button {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: transform 0.12s ease, background 0.16s ease, border-color 0.16s ease;
+  transition: transform 0.12s ease, background 0.16s ease, border-color 0.16s ease,
+    color 0.16s ease;
 }
 
 .btn:hover:not(:disabled) {
@@ -257,15 +411,16 @@ button {
 }
 
 .btn--primary {
-  background: linear-gradient(120deg, var(--accent) 0%, #5f7cff 100%);
+  background: linear-gradient(120deg, var(--accent) 0%, var(--accent-2) 100%);
   border-color: transparent;
+  color: var(--ink-on-accent);
   font-weight: 600;
 }
 
 .btn--danger {
-  background: rgb(255 107 129 / 14%);
-  border-color: rgb(255 107 129 / 45%);
-  color: #ffc9d1;
+  background: rgb(var(--danger-rgb) / 14%);
+  border-color: rgb(var(--danger-rgb) / 45%);
+  color: var(--danger-text);
 }
 
 .btn--ghost {
@@ -298,7 +453,7 @@ button {
   width: 100%;
   padding: 11px 13px;
   color: var(--text);
-  background: rgb(12 11 26 / 72%);
+  background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   outline: none;
@@ -307,7 +462,7 @@ button {
 
 .input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgb(124 108 255 / 22%);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 22%);
 }
 
 .input--sm {
@@ -330,15 +485,15 @@ button {
 }
 
 .hint--warn {
-  color: var(--warn);
+  color: var(--warn-text);
 }
 
 .alert {
   margin: 12px 0 0;
   padding: 9px 12px;
-  color: #ffd7de;
-  background: rgb(255 107 129 / 14%);
-  border: 1px solid rgb(255 107 129 / 40%);
+  color: var(--danger-text);
+  background: rgb(var(--danger-rgb) / 14%);
+  border: 1px solid rgb(var(--danger-rgb) / 40%);
   border-radius: var(--radius-sm);
   font-size: 13.5px;
 }
@@ -365,7 +520,7 @@ button {
   align-items: center;
   padding: 3px 9px;
   color: var(--muted);
-  background: rgb(12 11 26 / 60%);
+  background: var(--chip-bg);
   border: 1px solid var(--border);
   border-radius: 999px;
   font-size: 12px;
@@ -373,27 +528,27 @@ button {
 }
 
 .chip--ok {
-  color: #c8f7d8;
-  border-color: rgb(74 222 128 / 42%);
-  background: rgb(74 222 128 / 12%);
+  color: var(--ok-text);
+  border-color: rgb(var(--ok-rgb) / 42%);
+  background: rgb(var(--ok-rgb) / 12%);
 }
 
 .chip--warn {
-  color: #ffe4bb;
-  border-color: rgb(255 182 72 / 42%);
-  background: rgb(255 182 72 / 12%);
+  color: var(--warn-text);
+  border-color: rgb(var(--warn-rgb) / 42%);
+  background: rgb(var(--warn-rgb) / 12%);
 }
 
 .chip--live {
-  color: #d6d0ff;
-  border-color: rgb(124 108 255 / 52%);
-  background: rgb(124 108 255 / 16%);
+  color: var(--accent-text);
+  border-color: rgb(var(--accent-rgb) / 52%);
+  background: rgb(var(--accent-rgb) / 16%);
 }
 
 .tag {
   padding: 2px 7px;
   color: var(--muted);
-  background: rgb(12 11 26 / 55%);
+  background: var(--chip-bg);
   border: 1px solid var(--border);
   border-radius: 999px;
   font-size: 11.5px;
@@ -401,27 +556,27 @@ button {
 }
 
 .tag--host {
-  color: #ffe4bb;
-  border-color: rgb(255 182 72 / 48%);
-  background: rgb(255 182 72 / 14%);
+  color: var(--gold-text);
+  border-color: rgb(var(--warn-rgb) / 48%);
+  background: rgb(var(--warn-rgb) / 14%);
 }
 
 .tag--ok {
-  color: #c8f7d8;
-  border-color: rgb(74 222 128 / 42%);
-  background: rgb(74 222 128 / 12%);
+  color: var(--ok-text);
+  border-color: rgb(var(--ok-rgb) / 42%);
+  background: rgb(var(--ok-rgb) / 12%);
 }
 
 .tag--warn {
-  color: #ffc9d1;
-  border-color: rgb(255 107 129 / 42%);
-  background: rgb(255 107 129 / 12%);
+  color: var(--danger-text);
+  border-color: rgb(var(--danger-rgb) / 42%);
+  background: rgb(var(--danger-rgb) / 12%);
 }
 
 .tag--dev {
-  color: #e7dcff;
-  border-color: rgb(157 146 255 / 62%);
-  background: rgb(124 108 255 / 24%);
+  color: var(--accent-text);
+  border-color: rgb(var(--accent-soft-rgb) / 62%);
+  background: rgb(var(--accent-rgb) / 24%);
   font-weight: 600;
 }
 
@@ -440,7 +595,7 @@ button {
 
 .room-code__value {
   padding: 3px 10px;
-  background: rgb(12 11 26 / 68%);
+  background: var(--code-bg);
   border: 1px dashed var(--accent);
   border-radius: var(--radius-sm);
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
@@ -478,14 +633,14 @@ button {
   align-items: center;
   gap: 10px;
   padding: 9px 11px;
-  background: rgb(12 11 26 / 46%);
+  background: var(--row-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
 
 .member--self {
-  border-color: rgb(124 108 255 / 55%);
-  background: rgb(124 108 255 / 10%);
+  border-color: rgb(var(--accent-rgb) / 55%);
+  background: rgb(var(--accent-rgb) / 10%);
 }
 
 .member--offline {
@@ -493,19 +648,19 @@ button {
 }
 
 .member--dev {
-  border-color: rgb(255 215 110 / 48%);
-  background: rgb(255 215 110 / 7%);
+  border-color: rgb(var(--gold-rgb) / 48%);
+  background: rgb(var(--gold-rgb) / 7%);
 }
 
 .member--dev .member__avatar {
-  box-shadow: 0 0 0 2px rgb(255 215 110 / 55%);
+  box-shadow: 0 0 0 2px rgb(var(--gold-rgb) / 55%);
 }
 
 /* 先给一个纯色兜底，支持 background-clip: text 的浏览器再叠加渐变 */
 .member--dev .member__name {
-  color: #ffd76e;
+  color: var(--dev-fallback);
   font-weight: 700;
-  background: linear-gradient(96deg, #ffe9a8 0%, #ffb347 52%, #ff9ad2 100%);
+  background: var(--dev-grad);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -521,7 +676,7 @@ button {
   border-radius: 50%;
   font-size: 13px;
   font-weight: 700;
-  color: #16142b;
+  color: var(--ink-on-avatar);
 }
 
 .member__name {
@@ -607,7 +762,7 @@ button {
 
 .submit {
   padding: 14px;
-  background: rgb(12 11 26 / 44%);
+  background: var(--row-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
@@ -639,9 +794,9 @@ button {
   align-items: center;
   gap: 8px;
   padding: 12px;
-  color: #c8f7d8;
-  background: rgb(74 222 128 / 10%);
-  border: 1px solid rgb(74 222 128 / 32%);
+  color: var(--ok-text);
+  background: rgb(var(--ok-rgb) / 10%);
+  border: 1px solid rgb(var(--ok-rgb) / 32%);
   border-radius: var(--radius-sm);
 }
 
@@ -654,7 +809,7 @@ button {
 
 .dot--ok {
   background: var(--ok);
-  box-shadow: 0 0 0 4px rgb(74 222 128 / 18%);
+  box-shadow: 0 0 0 4px rgb(var(--ok-rgb) / 18%);
 }
 
 .next-round {
@@ -687,14 +842,14 @@ button {
   display: grid;
   gap: 4px;
   padding: 11px 12px;
-  background: rgb(124 108 255 / 8%);
+  background: rgb(var(--accent-rgb) / 8%);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
 
 .word-card--self {
-  border-color: rgb(124 108 255 / 60%);
-  background: rgb(124 108 255 / 16%);
+  border-color: rgb(var(--accent-rgb) / 60%);
+  background: rgb(var(--accent-rgb) / 16%);
 }
 
 .word-card--timeout {
@@ -720,7 +875,7 @@ button {
 
 .reveal--compact {
   padding: 10px 12px;
-  background: rgb(12 11 26 / 38%);
+  background: var(--row-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
@@ -748,13 +903,13 @@ button {
 }
 
 .result--win {
-  background: rgb(74 222 128 / 12%);
-  border-color: rgb(74 222 128 / 42%);
+  background: rgb(var(--ok-rgb) / 12%);
+  border-color: rgb(var(--ok-rgb) / 42%);
 }
 
 .result--draw {
-  background: rgb(255 182 72 / 10%);
-  border-color: rgb(255 182 72 / 36%);
+  background: rgb(var(--warn-rgb) / 10%);
+  border-color: rgb(var(--warn-rgb) / 36%);
 }
 
 .history {
@@ -795,15 +950,15 @@ button {
 }
 
 .banner--warn {
-  color: #ffe4bb;
-  background: rgb(255 182 72 / 12%);
-  border: 1px solid rgb(255 182 72 / 36%);
+  color: var(--warn-text);
+  background: rgb(var(--warn-rgb) / 12%);
+  border: 1px solid rgb(var(--warn-rgb) / 36%);
 }
 
 .banner--error {
-  color: #ffd7de;
-  background: rgb(255 107 129 / 12%);
-  border: 1px solid rgb(255 107 129 / 38%);
+  color: var(--danger-text);
+  background: rgb(var(--danger-rgb) / 12%);
+  border: 1px solid rgb(var(--danger-rgb) / 38%);
 }
 
 .banner .btn {
@@ -840,7 +995,7 @@ button {
   max-width: 100%;
   padding: 9px 14px;
   color: var(--text);
-  background: rgb(24 22 48 / 96%);
+  background: var(--toast-bg);
   border: 1px solid var(--border);
   border-radius: 999px;
   box-shadow: var(--shadow);
@@ -851,11 +1006,11 @@ button {
 }
 
 .toast--success {
-  border-color: rgb(74 222 128 / 48%);
+  border-color: rgb(var(--ok-rgb) / 48%);
 }
 
 .toast--warn {
-  border-color: rgb(255 182 72 / 48%);
+  border-color: rgb(var(--warn-rgb) / 48%);
 }
 
 @keyframes toast-in {
@@ -939,7 +1094,7 @@ button {
   gap: 10px;
   align-items: flex-start;
   padding: 12px 14px;
-  background: rgb(32 30 61 / 62%);
+  background: var(--panel-alt-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
@@ -952,7 +1107,7 @@ button {
   height: 24px;
   background: linear-gradient(140deg, var(--accent) 0%, var(--teal) 150%);
   border-radius: 50%;
-  color: #16142b;
+  color: var(--ink-on-avatar);
   font-size: 13px;
   font-weight: 800;
 }
@@ -1013,9 +1168,9 @@ button {
   flex: 0 0 auto;
   width: 46px;
   height: 46px;
-  background: linear-gradient(140deg, var(--accent) 0%, #4a5cff 140%);
+  background: linear-gradient(140deg, var(--accent) 0%, var(--accent-2) 140%);
   border-radius: 13px;
-  color: #12102a;
+  color: var(--ink-on-accent);
   font-size: 21px;
   font-weight: 800;
 }
@@ -1048,7 +1203,7 @@ button {
 }
 
 .game-card--soon {
-  background: rgb(32 30 61 / 45%);
+  background: var(--panel-alt-bg);
   border-style: dashed;
   box-shadow: none;
   opacity: 0.72;
@@ -1081,9 +1236,9 @@ button {
   flex: 0 0 auto;
   width: 58px;
   height: 58px;
-  background: linear-gradient(140deg, var(--accent) 0%, #4a5cff 140%);
+  background: linear-gradient(140deg, var(--accent) 0%, var(--accent-2) 140%);
   border-radius: 16px;
-  color: #12102a;
+  color: var(--ink-on-accent);
   font-size: 26px;
   font-weight: 800;
 }
@@ -1148,14 +1303,14 @@ a.topbar__crumb--current:hover {
   padding: 2px 6px;
   background: none;
   border: 0;
-  color: rgb(168 163 204 / 45%);
+  color: rgb(var(--muted-rgb) / 45%);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   cursor: default;
 }
 
 .version-tag:hover {
-  color: rgb(168 163 204 / 75%);
+  color: rgb(var(--muted-rgb) / 75%);
 }
 
 .modal {
@@ -1165,7 +1320,7 @@ a.topbar__crumb--current:hover {
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgb(6 5 18 / 68%);
+  background: var(--scrim);
   backdrop-filter: blur(3px);
 }
 
@@ -1266,9 +1421,9 @@ a.topbar__crumb--current:hover {
   flex: 0 0 auto;
   width: 38px;
   height: 38px;
-  background: linear-gradient(140deg, var(--accent) 0%, #4a5cff 140%);
+  background: linear-gradient(140deg, var(--accent) 0%, var(--accent-2) 140%);
   border-radius: 10px;
-  color: #12102a;
+  color: var(--ink-on-accent);
   font-weight: 800;
 }
 
@@ -1336,7 +1491,7 @@ a.topbar__crumb--current:hover {
   padding: 11px 14px;
   background: transparent;
   border: 0;
-  border-bottom: 1px solid rgb(52 48 92 / 60%);
+  border-bottom: 1px solid var(--hairline);
   color: var(--text);
   text-align: left;
   font: inherit;
@@ -1348,7 +1503,7 @@ button.admin-row {
 }
 
 button.admin-row:hover {
-  background: rgb(124 108 255 / 9%);
+  background: rgb(var(--accent-rgb) / 9%);
 }
 
 .admin-row--head {
@@ -1358,12 +1513,12 @@ button.admin-row:hover {
 }
 
 .admin-item.is-open > .admin-row {
-  background: rgb(124 108 255 / 13%);
+  background: rgb(var(--accent-rgb) / 13%);
 }
 
 .admin-flag {
   display: block;
-  color: var(--warn);
+  color: var(--warn-text);
   font-size: 11px;
   font-style: normal;
 }
@@ -1409,7 +1564,7 @@ button.admin-row:hover {
 }
 
 .admin-outcome--ALL_MET {
-  color: #a7f3c4;
+  color: var(--ok-text);
 }
 
 .admin-outcome--ROUND_LIMIT,
@@ -1422,7 +1577,7 @@ button.admin-row:hover {
 }
 
 .admin-outcome--ABANDONED {
-  color: #f2994a;
+  color: var(--abandoned-text);
 }
 
 .admin-outcome--running {
@@ -1440,7 +1595,7 @@ button.admin-row:hover {
   display: grid;
   grid-template-rows: 0fr;
   transition: grid-template-rows 0.28s ease;
-  background: rgb(12 11 26 / 45%);
+  background: var(--subpanel-bg);
 }
 
 .admin-expand[data-open="true"] {
@@ -1464,7 +1619,7 @@ button.admin-row:hover {
 
 .admin-meta code {
   padding: 1px 6px;
-  background: rgb(12 11 26 / 70%);
+  background: var(--code-bg);
   border-radius: 4px;
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
@@ -1491,14 +1646,14 @@ button.admin-row:hover {
 
 .timeline__item {
   padding: 12px 14px;
-  background: rgb(124 108 255 / 7%);
+  background: rgb(var(--accent-rgb) / 7%);
   border: 1px solid var(--border);
   border-left: 3px solid var(--accent);
   border-radius: var(--radius-sm);
 }
 
 .timeline__item--hidden {
-  background: rgb(255 182 72 / 7%);
+  background: rgb(var(--warn-rgb) / 7%);
   border-left-color: var(--warn);
 }
 
@@ -1536,7 +1691,7 @@ button.admin-row:hover {
   align-items: center;
   gap: 6px;
   padding: 6px 11px;
-  background: rgb(124 108 255 / 14%);
+  background: rgb(var(--accent-rgb) / 14%);
   border: 1px solid var(--border);
   border-radius: 999px;
   font-size: 13px;

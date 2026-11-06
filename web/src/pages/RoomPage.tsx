@@ -11,6 +11,7 @@ import HostControls from '../components/HostControls.js';
 import MemberList from '../components/MemberList.js';
 import NicknameEditor from '../components/NicknameEditor.js';
 import RoomCodeBadge from '../components/RoomCodeBadge.js';
+import ThemeToggle from '../components/ThemeToggle.js';
 import ToastStack from '../components/ToastStack.js';
 import { findGameByType, gamePath } from '../games/registry.js';
 import { useRoom } from '../hooks/useRoom.js';
@@ -111,6 +112,7 @@ export default function RoomPage() {
         )}
         <RoomCodeBadge code={room?.code ?? rawCode} />
         <div className="topbar__right">
+          <ThemeToggle />
           {room?.you && (
             <NicknameEditor
               current={room.you.nickname}

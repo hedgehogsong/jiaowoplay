@@ -5,6 +5,7 @@
 
 - 后端：Node.js + TypeScript + Express + Socket.IO，房间状态保存在服务端内存
 - 前端：React + Vite + TypeScript，纯 CSS（无 UI 框架）
+- 主题：浅色为默认，每页右上角可切深色；选择记在 localStorage，颜色全部走 CSS 变量
 - 持久化：SQLite（better-sqlite3），保存对局 / 轮次 / 提交历史
 - 部署：Nginx 反向代理（含 WebSocket upgrade）+ PM2 或 systemd
 

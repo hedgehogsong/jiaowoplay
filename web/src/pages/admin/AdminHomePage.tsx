@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { GAMES } from '../../games/registry.js';
+import ThemeToggle from '../../components/ThemeToggle.js';
 import { useAdminGuard } from '../../components/admin/RequireAdmin.js';
 
 export default function AdminHomePage() {
@@ -13,6 +14,7 @@ export default function AdminHomePage() {
           <h1 className="admin-title">后台管理</h1>
         </div>
         <div className="admin-topbar__actions">
+          <ThemeToggle />
           <Link className="btn btn--ghost btn--sm" to="/">
             返回前台
           </Link>

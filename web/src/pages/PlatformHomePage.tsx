@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { GAMES, gamePath, type GameEntry } from '../games/registry.js';
+import ThemeToggle from '../components/ThemeToggle.js';
 
 function GameCard({ game }: { game: GameEntry }) {
   return (
@@ -23,6 +24,7 @@ export default function PlatformHomePage() {
   return (
     <div className="page page--platform">
       <header className="hero">
+        <ThemeToggle />
         <p className="hero__eyebrow">线上小游戏聚合平台</p>
         <h1 className="hero__title">交我PLAY</h1>
         <p className="hero__subtitle">
