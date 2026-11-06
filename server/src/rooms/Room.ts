@@ -317,6 +317,7 @@ export class GameRoom {
       maxRounds: session.maxRounds,
       winMode: session.settings.winMode,
       players: online.map((player) => ({ playerId: player.id, nickname: player.nickname })),
+      hostPlayerId: this.data.hostPlayerId,
       startedAt: now,
     });
     this.deps.history?.recordEvent({

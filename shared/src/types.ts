@@ -175,7 +175,10 @@ export interface AdminSessionSummary {
   roundCount: number;
   revealedRoundCount: number;
   playerCount: number;
+  /** 房主已排在第一位；旧数据缺少房主快照时按加入顺序返回 */
   players: { playerId: string; nickname: string }[];
+  hostPlayerId: string | null;
+  hostNickname: string | null;
   winnerNicknames: string[];
   startedAt: number;
   endedAt: number | null;

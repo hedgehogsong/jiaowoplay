@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS game_sessions (
   win_mode          TEXT NOT NULL DEFAULT 'ALL_SAME',
   winner_player_ids TEXT NOT NULL DEFAULT '[]',
   players           TEXT NOT NULL DEFAULT '[]',
+  host_player_id    TEXT,
   started_at        INTEGER NOT NULL,
   ended_at          INTEGER
 );

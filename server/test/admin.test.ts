@@ -191,6 +191,15 @@ describe('后台接口鉴权', () => {
     expect(page.body.page).toBe(1);
     expect(Array.isArray(page.body.items)).toBe(true);
     expect(page.body.total).toBeGreaterThanOrEqual(page.body.items.length);
+
+    // 看板参与人列依赖：昵称列表完整，且房主排在第一位
+    for (const item of page.body.items) {
+      expect(item.players.length).toBe(item.playerCount);
+      if (item.hostPlayerId) {
+        expect(item.players[0]?.playerId).toBe(item.hostPlayerId);
+        expect(item.hostNickname).toBe(item.players[0]?.nickname);
+      }
+    }
   });
 
   it('非法分页参数回落到默认值而不是报错', async () => {

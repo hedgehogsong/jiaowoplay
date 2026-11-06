@@ -1329,8 +1329,8 @@ a.topbar__crumb--current:hover {
 
 .admin-row {
   display: grid;
-  grid-template-columns: 96px 84px 152px 152px 84px 56px 104px minmax(200px, 1fr);
-  gap: 10px;
+  grid-template-columns: 152px minmax(220px, 1.15fr) 104px minmax(230px, 1fr);
+  gap: 12px;
   align-items: center;
   width: 100%;
   padding: 11px 14px;
@@ -1366,6 +1366,39 @@ button.admin-row:hover {
   color: var(--warn);
   font-size: 11px;
   font-style: normal;
+}
+
+/* 参与人一人一行，房主排在最前 */
+.admin-players {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.admin-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-player__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-host {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--accent-soft);
+  font-size: 10.5px;
+  font-style: normal;
+  line-height: 15px;
 }
 
 .admin-outcome {
@@ -1434,6 +1467,12 @@ button.admin-row:hover {
   background: rgb(12 11 26 / 70%);
   border-radius: 4px;
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+.admin-meta--times {
+  margin: -6px 0 10px;
+  font-size: 12px;
+  opacity: 0.82;
 }
 
 .admin-empty {
@@ -1532,20 +1571,40 @@ button.admin-row:hover {
 
 @media (width < 900px) {
   .admin-row {
-    grid-template-columns: 88px 74px 128px 78px minmax(150px, 1fr);
+    grid-template-columns: 124px minmax(112px, 1fr) 84px minmax(148px, 1fr);
     gap: 8px;
     padding: 10px;
   }
 
-  /* 窄屏隐藏结束时间、时长、人数三列，保持可读且不横向溢出 */
-  .admin-row > :nth-child(4),
-  .admin-row > :nth-child(5),
-  .admin-row > :nth-child(6) {
-    display: none;
+  .admin-players {
+    font-size: 12.5px;
   }
 
   .admin-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* 手机宽度放不下四列网格，改成一行一项的堆叠卡片，避免出现横向滚动 */
+@media (width < 620px) {
+  .admin-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 12px 14px;
+  }
+
+  .admin-row--head {
+    display: none;
+  }
+
+  .admin-players {
+    padding-left: 2px;
+  }
+
+  .admin-outcome {
+    font-size: 13px;
   }
 }
 

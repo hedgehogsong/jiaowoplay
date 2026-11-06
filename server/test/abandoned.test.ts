@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import Database from 'better-sqlite3';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PLAYER_OFFLINE_GRACE_MS } from '@jiaowoplay/shared';
 import { createServerBundle, type ServerBundle } from '../src/bootstrap.js';
@@ -30,9 +31,10 @@ function seedCrashedGame(history: HistoryRepository): string {
     maxRounds: 20,
     winMode: 'ALL_SAME',
     players: [
-      { playerId: 'pl_a', nickname: '甲甲' },
       { playerId: 'pl_b', nickname: '乙乙' },
+      { playerId: 'pl_a', nickname: '甲甲' },
     ],
+    hostPlayerId: 'pl_a',
     startedAt: T0,
   });
 
@@ -139,6 +141,10 @@ describe('流局收尾写库', () => {
 
     const revealed = detail?.rounds.find((round) => round.roundNumber === 1);
     expect(revealed?.status).toBe('REVEALED');
+
+    // 房主排在参与人第一位（快照里乙乙先加入，但房主是甲甲）
+    expect(detail?.hostNickname).toBe('甲甲');
+    expect(detail?.players.map((player) => player.nickname)).toEqual(['甲甲', '乙乙']);
   });
 
   it('对账幂等：第二次不再处理，也不会碰已判定胜负的对局', () => {
@@ -275,6 +281,30 @@ describe('房间销毁与进程关闭都会收尾对局', () => {
     expect(calls).toEqual([]);
     expect(room.data.session?.id).toBe(sessionId);
     expect(room.data.session?.outcome).toBe('HOST_ENDED');
+  });
+});
+
+describe('旧库迁移', () => {
+  it('缺少 host_player_id 列的旧库会被补上该列', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jwp-migrate-'));
+    const dbPath = path.join(dir, 'legacy.sqlite');
+    const legacy = new Database(dbPath);
+    // 线上现库的建表语句：没有 host_player_id
+    legacy.exec(`CREATE TABLE game_sessions (
+      id TEXT PRIMARY KEY, room_id TEXT NOT NULL, room_code TEXT NOT NULL,
+      game_type TEXT NOT NULL, status TEXT NOT NULL, outcome TEXT,
+      current_round INTEGER NOT NULL DEFAULT 0, max_rounds INTEGER,
+      win_mode TEXT NOT NULL DEFAULT 'ALL_SAME', winner_player_ids TEXT NOT NULL DEFAULT '[]',
+      players TEXT NOT NULL DEFAULT '[]', started_at INTEGER NOT NULL, ended_at INTEGER)`);
+    legacy.close();
+
+    const db = openDatabase(dbPath);
+    const columns = (db.prepare('PRAGMA table_info(game_sessions)').all() as { name: string }[]).map(
+      (column) => column.name,
+    );
+    expect(columns).toContain('host_player_id');
+    db.close();
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });
 

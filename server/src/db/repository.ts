@@ -21,6 +21,8 @@ export interface SessionRecord {
   maxRounds: number;
   winMode: WinMode;
   players: { playerId: string; nickname: string }[];
+  /** 开局那一刻的房主，用于后台把房主排在参与人第一位 */
+  hostPlayerId: string;
   startedAt: number;
 }
 
@@ -95,6 +97,7 @@ interface AdminSessionRow {
   max_rounds: number;
   winner_player_ids: string;
   players: string;
+  host_player_id: string | null;
   started_at: number;
   ended_at: number | null;
   round_count: number;
@@ -117,8 +120,25 @@ function parseJson<T>(raw: string, fallback: T): T {
   }
 }
 
+/** 后台把房主排在参与人第一位；旧数据没有 host_player_id 时保持原顺序（首位本就是建房者） */
+function hostFirst(
+  players: { playerId: string; nickname: string }[],
+  hostPlayerId: string | null,
+): { playerId: string; nickname: string }[] {
+  if (!hostPlayerId) return players;
+  const index = players.findIndex((player) => player.playerId === hostPlayerId);
+  if (index <= 0) return players;
+  const ordered = [...players];
+  const host = ordered.splice(index, 1)[0];
+  return host ? [host, ...ordered] : players;
+}
+
 function toAdminSummary(row: AdminSessionRow): AdminSessionSummary {
-  const players = parseJson<{ playerId: string; nickname: string }[]>(row.players, []);
+  const hostPlayerId = row.host_player_id ?? null;
+  const players = hostFirst(
+    parseJson<{ playerId: string; nickname: string }[]>(row.players, []),
+    hostPlayerId,
+  );
   const winnerPlayerIds = parseJson<string[]>(row.winner_player_ids, []);
   const nicknameOf = new Map(players.map((p) => [p.playerId, p.nickname]));
   return {
@@ -133,6 +153,8 @@ function toAdminSummary(row: AdminSessionRow): AdminSessionSummary {
     revealedRoundCount: row.revealed_count,
     playerCount: players.length,
     players,
+    hostPlayerId,
+    hostNickname: (hostPlayerId ? nicknameOf.get(hostPlayerId) : undefined) ?? null,
     winnerNicknames: winnerPlayerIds
       .map((id) => nicknameOf.get(id))
       .filter((name): name is string => typeof name === 'string'),
@@ -167,9 +189,9 @@ export class HistoryRepository {
         .prepare(
           `INSERT INTO game_sessions
              (id, room_id, room_code, game_type, status, outcome, current_round,
-              max_rounds, win_mode, winner_player_ids, players, started_at, ended_at)
+              max_rounds, win_mode, winner_player_ids, players, host_player_id, started_at, ended_at)
            VALUES (@id, @roomId, @roomCode, @gameType, 'active', NULL, 0,
-              @maxRounds, @winMode, '[]', @players, @startedAt, NULL)`,
+              @maxRounds, @winMode, '[]', @players, @hostPlayerId, @startedAt, NULL)`,
         )
         .run({
           id: record.id,
@@ -179,6 +201,7 @@ export class HistoryRepository {
           maxRounds: record.maxRounds,
           winMode: record.winMode,
           players: JSON.stringify(record.players),
+          hostPlayerId: record.hostPlayerId,
           startedAt: record.startedAt,
         });
     });
@@ -510,7 +533,7 @@ export class HistoryRepository {
     const rows = this.db
       .prepare(
         `SELECT s.id, s.room_code, s.game_type, s.status, s.outcome, s.current_round,
-                s.max_rounds, s.win_mode, s.winner_player_ids, s.players,
+                s.max_rounds, s.win_mode, s.winner_player_ids, s.players, s.host_player_id,
                 s.started_at, s.ended_at,
                 (SELECT COUNT(*) FROM rounds r WHERE r.game_session_id = s.id) AS round_count,
                 (SELECT COUNT(*) FROM rounds r
@@ -533,7 +556,7 @@ export class HistoryRepository {
     const row = this.db
       .prepare(
         `SELECT s.id, s.room_code, s.game_type, s.status, s.outcome, s.current_round,
-                s.max_rounds, s.win_mode, s.winner_player_ids, s.players,
+                s.max_rounds, s.win_mode, s.winner_player_ids, s.players, s.host_player_id,
                 s.started_at, s.ended_at,
                 (SELECT COUNT(*) FROM rounds r WHERE r.game_session_id = s.id) AS round_count,
                 (SELECT COUNT(*) FROM rounds r

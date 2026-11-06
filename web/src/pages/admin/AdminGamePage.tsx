@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { AdminSessionDetail, AdminSessionListPage, AdminSessionSummary } from '@jiaowoplay/shared';
 import { adminApi } from '../../lib/adminApi.js';
-import { formatDateTime, formatDuration, shortId } from '../../lib/format.js';
+import { formatDateTime, formatDateTimeMinute, formatDuration } from '../../lib/format.js';
 import { findGameBySlug } from '../../games/registry.js';
 import { OUTCOME_TEXT } from '../../hooks/useRoom.js';
 import RoundTimeline from '../../components/admin/RoundTimeline.js';
@@ -125,12 +125,8 @@ export default function AdminGamePage() {
 
       <section className="admin-list">
         <div className="admin-row admin-row--head" aria-hidden>
-          <span>对局 ID</span>
-          <span>房间</span>
           <span>开始时间</span>
-          <span>结束时间</span>
-          <span>时长</span>
-          <span>人数</span>
+          <span>参与人</span>
           <span>轮次</span>
           <span>结果</span>
         </div>
@@ -151,14 +147,17 @@ export default function AdminGamePage() {
                   onClick={() => void toggle(session.id)}
                   aria-expanded={open}
                 >
-                  <span className="mono" title={session.id}>
-                    {shortId(session.id)}
+                  <span className="mono">{formatDateTimeMinute(session.startedAt)}</span>
+                  <span className="admin-players">
+                    {session.players.map((player) => (
+                      <span className="admin-player" key={player.playerId}>
+                        <span className="admin-player__name">{player.nickname}</span>
+                        {session.hostPlayerId !== null && player.playerId === session.hostPlayerId && (
+                          <em className="admin-host">主</em>
+                        )}
+                      </span>
+                    ))}
                   </span>
-                  <span className="mono">{session.roomCode}</span>
-                  <span className="mono">{formatDateTime(session.startedAt)}</span>
-                  <span className="mono">{formatDateTime(session.endedAt)}</span>
-                  <span className="mono">{formatDuration(session.durationMs)}</span>
-                  <span className="mono">{session.playerCount}</span>
                   <span className="mono">
                     {session.revealedRoundCount}/{session.roundCount}
                     {session.revealedRoundCount < session.roundCount && (
@@ -180,11 +179,17 @@ export default function AdminGamePage() {
                     {open && detail && (
                       <>
                         <p className="admin-meta">
-                          完整 ID <code>{detail.id}</code> · 上限 {detail.maxRounds} 轮 ·{' '}
-                          {detail.players.map((player) => player.nickname).join('、')}
+                          房间 <code>{detail.roomCode}</code> · ID <code>{detail.id}</code> ·
+                          上限 {detail.maxRounds} 轮
+                          {detail.hostNickname && <> · 房主 {detail.hostNickname}</>}
                           {detail.winnerNicknames.length > 0 && (
                             <> · 胜者 {detail.winnerNicknames.join('、')}</>
                           )}
+                        </p>
+                        <p className="admin-meta admin-meta--times">
+                          开始 {formatDateTime(detail.startedAt)} · 结束{' '}
+                          {formatDateTime(detail.endedAt)} · 时长{' '}
+                          {formatDuration(detail.durationMs)}
                         </p>
                         <RoundTimeline rounds={detail.rounds} />
                       </>
